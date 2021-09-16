@@ -1,78 +1,84 @@
 // AtCoder Typical Contest 001 C 高速フーリエ変換(Fast Fourier Transform)
 #include<bits/stdc++.h>
 using namespace std;
-namespace FFT {
-  using DD = double;
-  const DD PI = acosl(-1);
-  struct Comp {
-    DD real, imag;
-    Comp(DD real = 0, DD imag = 0) : real(real), imag(imag) {}
-    friend inline ostream& operator << (ostream &s, const Comp &c) {
-      return s << '<' << c.real << ',' << c.imag << '>';
-    }
-    inline Comp operator + (const Comp &c) {
-      return {real + c.real, imag + c.imag};
-    }
-    inline Comp operator - (const Comp &c) {
-      return {real - c.real, imag - c.imag};
-    }
-    inline Comp operator * (const Comp &c) {
-      return {real * c.real - imag * c.imag, real * c.imag + imag * c.real};
-    }
-    inline Comp operator * (DD a) {
-      return {real * a, imag * a};
-    }
-    inline Comp operator / (DD a) {
-      return {real / a, imag / a};
-    }
+using ll=long long;
+const double PI=acos(-1);
+namespace FFT{
+  using Real = double;
+  struct Comp{
+    Real re, im;
+    Comp(){};
+    Comp(Real re, Real im) : re(re), im(im) {}
+    Real slen() const { return re*re+im*im; }
+    Real real() { return re; }
+    inline Comp operator+(const Comp &c) { return Comp(re+c.re, im+c.im); }
+    inline Comp operator-(const Comp &c) { return Comp(re-c.re, im-c.im); }
+    inline Comp operator*(const Comp &c) { return Comp(re*c.re-im*c.im, re*c.im+im*c.re); }
+    inline Comp operator/(const Real &c) { return Comp(re/c, im/c); } 
+    inline Comp conj() const { return Comp(re, -im); }
   };
-  // FFT
-  void trans(vector<Comp> &v, bool inv = false) {
-    int n = (int)v.size();
-    for (int i = 0, j = 1; j < n-1; j++) {
-      for (int k = n>>1; k > (i ^= k); k >>= 1);
-      if (i > j) swap(v[i], v[j]);
+  void fft(vector<Comp>& a, bool inverse){
+    int n = a.size();
+    static bool prepared = false;
+    static vector<Comp> z(30);
+    if(!prepared){
+      prepared = true;
+      for(int i=0; i<30; i++){
+        Real ang = 2*PI/(1 << (i+1));
+        z[i] = Comp(cos(ang), sin(ang));
+      }
     }
-    for (int t = 2; t <= n; t <<= 1) {
-      DD ang = acosl(-1.0) * 2 / t;
-      if (inv) ang = -ang;
-      for (int i = 0; i < n; i += t) {
-        for (int j = 0; j < t/2; ++j) {
-          Comp w = {cos(ang * j), sin(ang * j)};
-          int j1 = i + j, j2 = i + j + t/2;
-          Comp c1 = v[j1], c2 = v[j2] * w;
-          v[j1] = c1 + c2;
-          v[j2] = c1 - c2;
+    for (size_t i = 0, j = 1; j < n; ++j) {
+      for (size_t k = n >> 1; k > (i ^= k); k >>= 1);
+      if (i > j) swap(a[i], a[j]);
+    }
+    for (int i = 0, t = 1; t < n; ++i, t <<= 1) {
+      Comp bw = z[i];
+      if(inverse) bw = bw.conj();
+      for (int i = 0; i < n; i += t * 2) {
+        Comp w(1,0);
+        for (int j = 0; j < t; ++j) {
+          int l = i + j, r = i + j + t;
+          Comp c = a[l], d = a[r] * w;
+          a[l] = c + d;
+          a[r] = c - d;
+          w = w * bw;
         }
       }
     }
-    if (inv) for (int i = 0; i < n; ++i) v[i] = v[i]/n;
+    if(inverse)
+      for(int i=0; i<n; i++) a[i] = a[i]/(Real)n;
   }
-  // A * B
   template<typename T>
-  vector<long long> mul(const vector<T> &A, const vector<T> &B) {
-    int size_a = 1; while (size_a < A.size()) size_a <<= 1;
-    int size_b = 1; while (size_b < B.size()) size_b <<= 1;
-    int size_fft = max(size_a, size_b) << 1;     
-    vector<Comp> cA(size_fft), cB(size_fft), cC(size_fft);
-    for (int i = 0; i < A.size(); ++i) cA[i] = {(DD)A[i], 0};
-    for (int i = 0; i < B.size(); ++i) cB[i] = {(DD)B[i], 0}; 
-    trans(cA); trans(cB);
-    for (int i = 0; i < size_fft; ++i) cC[i] = cA[i] * cB[i];
-    trans(cC, true);        
-    vector<long long> res((int)A.size() + (int)B.size() - 1);
-    for (int i = 0; i < res.size(); ++i) {
-      res[i] = (long long)(cC[i].real + 0.5);
+  vector<int> mul(vector<T> &a, vector<T> &b, bool issquare){
+    int deg = a.size() + b.size();
+    int n = 1;
+    while(n < deg) n <<= 1;
+    vector<Comp> fa,fb;
+    fa.resize(n); fb.resize(n);
+    for(int i=0;i<n;i++){
+      if(i < a.size()) fa[i] = Comp(a[i], 0);
+      else fa[i] = Comp(0,0);
+      if(i < b.size()) fb[i] = Comp(b[i], 0);
+      else fb[i] = Comp(0,0);
     }
+    for(int i=0;i<b.size();i++) fb[i] = Comp(b[i], 0);
+    fft(fa, false); 
+    if(issquare) fb = fa;
+    else fft(fb, false);
+    for(int i=0;i<n;i++) fa[i] = fa[i] * fb[i];
+    fft(fa, true);
+    vector<int> res(n);
+    for(int i=0;i<n;i++) res[i] = round(fa[i].re);
     return res;
   }
 };
 int main(){
-  int n;
-  cin>>n;
-  vector<int> a(n),b(n);
-  for(int i=0;i<n;i++) cin>>a[i]>>b[i];
-  auto ab=FFT::mul(a,b);
+  int N;
+  cin>>N;
+  vector<int> A(N),B(N);
+  for(int i=0;i<N;i++) cin>>A[i]>>B[i];
+  auto conv=FFT::mul(A,B);
   cout<<0<<endl;
-  for(int i=0;i<2*n-1;i++) cout<<ab[i]<<endl;
+  for(int i=0;i<2*N-1;i++) cout<<conv[i]<<endl;
 }

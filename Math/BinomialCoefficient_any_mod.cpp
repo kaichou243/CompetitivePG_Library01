@@ -100,10 +100,10 @@ struct Comb{
     init(n);
     init(p, pm);
   }
-  void COMinit(int n){
+  void COMinit(){
     for(auto p : pf){
       ll ps=p.first,pfs=pow(p.first,p.second);
-      init(n);
+      init(n_);
       init(ps,pfs);
     }
   }
@@ -134,6 +134,6 @@ struct Comb{
 //example
 int main(){
   Comb C(200000,998244353);
-  C.COMinit(200000);
+  C.COMinit();
   cout<<C.COM(5,2);
 }

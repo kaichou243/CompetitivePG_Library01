@@ -5,6 +5,6 @@
 
 •SegmentTree 
 
-•StronglyConextedComponent 
+•StronglyConnectedComponents
 
 •UnionFind

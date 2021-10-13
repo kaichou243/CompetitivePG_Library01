@@ -10,12 +10,24 @@ using Graph=vector<vector<Edge>>;
 struct SegP{
     int n;
     vector<P> dat;
+    SegP(){}
     SegP(vector<P> v){
         int sz=v.size();
         n=1;
         while(n<sz) n*=2;
         dat.assign(2*n-1,{1e9,1e9});
         for(int i=0;i<sz;i++) dat[i+n-1]=v[i];
+        for(int i=n-2;i>=0;i--) dat[i]=min(dat[2*i+1],dat[2*i+2]);
+    }
+    void resize(int N){
+        n=1;
+        while(n<N) n*=2;
+        dat.assign(2*n-1,{1e9,1e9});
+    }
+    void vecset(vector<P> v){
+        for(int i=0;i<v.size();i++){
+            dat[i+n-1]=v[i];
+        }
         for(int i=n-2;i>=0;i--) dat[i]=min(dat[2*i+1],dat[2*i+2]);
     }
     void update(int k,ll x){
@@ -78,6 +90,7 @@ void dfs_sz(const vector<vector<int>> &G,int v,int p,vector<int> sz){
 }
 vector<int> fst,ET,depth;
 vector<P> pv;
+SegP seg;
 void LCAinit(const Graph G){
     int n=G.size();
     fst.assign(n,-1);
@@ -92,8 +105,9 @@ void LCAinit(const Graph G){
         pv[i].first=depth[ET[i]];
         pv[i].second=ET[i];
     }
+    seg.resize(pv.size());
+    seg.vecset(pv);
 }
-SegP seg(pv);
 P lca(int u,int v){
     if(fst[u]>fst[v]) swap(u,v);
     P ret=seg.query(fst[u],fst[v]+1);

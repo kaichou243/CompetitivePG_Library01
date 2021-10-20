@@ -5,6 +5,8 @@
 
 •SegmentTree 
 
+•LazySegmentTree
+
 •StronglyConnectedComponents
 
 •LowestCommonAncestor

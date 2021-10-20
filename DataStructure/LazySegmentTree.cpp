@@ -1,3 +1,5 @@
+#include<bits/stdc++.h>
+using namespace std;
 template <typename X, typename M>
 struct LazySegTree {
     using FX = function<X(X, X)>;
@@ -64,6 +66,7 @@ struct LazySegTree {
     }
     X query(int a, int b) { return query_sub(a, b, 0, 0, n); }
 };
+//RAQ+RSQ
 using X = long long;
 using M = long long;
 auto fx = [](X x1, X x2) -> X { return x1 + x2; };
@@ -75,8 +78,8 @@ long long em = 0;
 int main(){
   LazySegTree<X,M> Seg(5,fx,fa,fm,fp,ex,em);
   for(int i=0;i<5;i++){
-    Seg.set(i,i);
+    Seg.set(i,i); //{0,1,2,3,4}
   }
-  Seg.build();
-  cout<<Seg.query(0,5);
+  Seg.build(); //bulid LazySegmentTree
+  cout<<Seg.query(0,5); //[0,5)
 }

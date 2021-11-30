@@ -12,3 +12,5 @@
 •LowestCommonAncestor
 
 •UnionFind
+
+•BinomialCoefficient (Any mod)

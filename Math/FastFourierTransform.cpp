@@ -50,7 +50,7 @@ namespace FFT{
       for(int i=0; i<n; i++) a[i] = a[i]/(Real)n;
   }
   template<typename T>
-  vector<int> mul(vector<T> &a, vector<T> &b, bool issquare){
+  vector<T> mul(vector<T> &a, vector<T> &b, bool issquare){
     int deg = a.size() + b.size();
     int n = 1;
     while(n < deg) n <<= 1;
@@ -78,7 +78,7 @@ int main(){
   cin>>N;
   vector<int> A(N),B(N);
   for(int i=0;i<N;i++) cin>>A[i]>>B[i];
-  auto conv=FFT::mul(A,B);
+  auto conv=FFT::mul(A,B,false);
   cout<<0<<endl;
   for(int i=0;i<2*N-1;i++) cout<<conv[i]<<endl;
 }

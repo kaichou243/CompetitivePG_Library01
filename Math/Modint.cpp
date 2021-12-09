@@ -1,5 +1,6 @@
 #include<bits/stdc++.h>
 using namespace std;
+using ll=long long;
 template<int MOD> struct Fp{
   ll val;
   constexpr Fp(long long v = 0) noexcept : val(v % MOD) {

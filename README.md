@@ -14,3 +14,5 @@
 •UnionFind
 
 •BinomialCoefficient (Any mod)
+
+•MaxFlow (Dinic's Algorithm)

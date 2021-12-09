@@ -58,7 +58,7 @@ P ChineseRem(const vector<ll> &b, const vector<ll> &m) {
   }
   return make_pair(mod(r, M), M);
 }
-struct Comb<int m>{
+template <int m> struct Comb{
   unordered_map<int,tuple<ll,vector<ll>,vector<ll>>> mp;
   int n_,m;
   ll p_, pm_;

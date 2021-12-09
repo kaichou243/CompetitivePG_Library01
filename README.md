@@ -3,6 +3,8 @@
 
 •FastFourierTransform
 
+•NumberTheoreticTransform
+
 •SegmentTree 
 
 •LazySegmentTree
@@ -16,3 +18,5 @@
 •BinomialCoefficient (Any mod)
 
 •MaxFlow (Dinic's Algorithm)
+
+•Modint

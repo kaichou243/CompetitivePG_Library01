@@ -58,15 +58,15 @@ P ChineseRem(const vector<ll> &b, const vector<ll> &m) {
   }
   return make_pair(mod(r, M), M);
 }
-struct Comb{
+struct Comb<int m>{
   unordered_map<int,tuple<ll,vector<ll>,vector<ll>>> mp;
   int n_,m;
   ll p_, pm_;
   vector<ll> ord_, fact_;
   vector<P> pf;
-  Comb(int n,int M) : n_(n), ord_(n), fact_(n) { 
-    m=M;
-    pf=prime_factorize(M); 
+  Comb(int n) : n_(n), ord_(n), fact_(n) { 
+    pf=prime_factorize(m); 
+    COMinit();
   }
   Comb(ll p, ll pm, int n) :
     n_(n), p_(p), pm_(pm), ord_(n), fact_(n) {
@@ -115,7 +115,7 @@ struct Comb{
     res=res*modpow(p,e,pms)%pms;
     return res;
   }
-  ll COM(int n, int k){
+  ll comb(int n, int k){
     if(n<0 || k<0 || n<k) return 0;
     vector<long long> vb, vm;
     for (auto ps : pf) {
@@ -133,7 +133,6 @@ struct Comb{
 };
 //example
 int main(){
-  Comb C(200000,998244353);
-  C.COMinit();
-  cout<<C.COM(5,2);
+  Comb<998244353> C(200000);
+  cout<<C.comb(5,2);
 }

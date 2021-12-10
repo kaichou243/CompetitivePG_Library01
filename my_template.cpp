@@ -418,7 +418,7 @@ FLOW Dinic(MaxFlowGraph &G, int s, int t) {
         if (level[t] < 0) return res;
         iter.assign(G.V,0);
         FLOW flow;
-        while ((flow = didfs(G, s, t, INF,level,iter)) > 0) {
+        while ((flow = didfs(G, s, t, inf,level,iter)) > 0) {
             res += flow;
         }
     }

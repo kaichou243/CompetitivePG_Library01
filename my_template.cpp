@@ -431,10 +431,13 @@ ll mod(ll a, ll mod) {
 }
 ll modpow(ll a,ll n,ll mod){
   ll res=1;
+  a%=mod;
   while (n>0){
-    if (n & 1) res = res * a % mod;
-    a = a * a % mod;
+    if (n & 1) res*=a;
+    a *= a;
+    a%=mod;
     n >>= 1;
+    res%=mod;
   }
   return res;
 }
@@ -481,19 +484,15 @@ P ChineseRem(const vector<ll> &b, const vector<ll> &m) {
   }
   return make_pair(mod(r, M), M);
 }
-struct Comb{
+template<int m> struct Comb{
   unordered_map<int,tuple<ll,vector<ll>,vector<ll>>> mp;
-  int n_,m;
+  int n_;
   ll p_, pm_;
   vector<ll> ord_, fact_;
   vector<P> pf;
-  Comb(int n,int M) : n_(n), ord_(n), fact_(n) { 
-    m=M;
-    pf=prime_factorize(M); 
-  }
-  Comb(ll p, ll pm, int n) :
-    n_(n), p_(p), pm_(pm), ord_(n), fact_(n) {
-    init(p, pm);
+  Comb(int n) : n_(n), ord_(n), fact_(n){ 
+    pf=prime_factorize(m);
+    COMinit();
   }
   void init(int n) {
     ord_.resize(n);
@@ -538,7 +537,7 @@ struct Comb{
     res=res*modpow(p,e,pms)%pms;
     return res;
   }
-  ll COM(int n, int k){
+  ll operator()(int n, int k){
     if(n<0 || k<0 || n<k) return 0;
     vector<long long> vb, vm;
     for (auto ps : pf) {
@@ -565,7 +564,7 @@ template<typename T>
 void dijkstra(const Graph &G,int s,vector<ll> &dist,vector<T> &cnt){
   int N = G.size();
   dist.assign(N, INF);
-  cnt.assign(N,T(0));
+  cnt.assign(N,0);
   priority_queue<P, vector<P>, greater<P>> pq;
   dist[s] = 0;
   cnt[s] = 1;

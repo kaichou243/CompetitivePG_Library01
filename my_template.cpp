@@ -558,10 +558,11 @@ void dfs(const vector<vector<int>> &G,int v,vector<bool> &seen){
     dfs(G,nv,seen);
   }
 }
-void dijkstra(const Graph &G,int s,vector<ll> &dist,vector<ll> &cnt,int cnt_mod){
+template<typename T>
+void dijkstra(const Graph &G,int s,vector<ll> &dist,vector<T> &cnt){
   int N = G.size();
   dist.assign(N, INF);
-  cnt.assign(N,0);
+  cnt.assign(N,T(0));
   priority_queue<P, vector<P>, greater<P>> pq;
   dist[s] = 0;
   cnt[s] = 1;
@@ -580,7 +581,6 @@ void dijkstra(const Graph &G,int s,vector<ll> &dist,vector<ll> &cnt,int cnt_mod)
         cnt[e.to]=cnt[v];
       }else if (dist[e.to] == dist[v] + e.cost){
         cnt[e.to]+=cnt[v];
-        cnt[e.to]%=cnt_mod;
       }
     }
   }

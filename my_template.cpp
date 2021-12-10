@@ -2,6 +2,9 @@
 #pragma GCC target("avx2")
 #pragma GCC optimize("O3")
 #pragma GCC optimize("unroll-loops")
+#define FOR(i,n) for(int i = 0; i < (n); i++)
+#define sz(c) ((int)(c).size())
+#define ten(x) ((int)1e##x)
 using namespace std;
 using ll=long long;
 using FLOW=int;

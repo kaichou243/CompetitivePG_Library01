@@ -134,5 +134,5 @@ template<int m> struct Comb{
 //example
 int main(){
   Comb<998244353> C(200000);
-  cout<<C.comb(5,2);
+  cout<<C(5,2)<<endl;
 }

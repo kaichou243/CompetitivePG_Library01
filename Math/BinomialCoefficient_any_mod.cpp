@@ -115,7 +115,7 @@ template<int m> struct Comb{
     res=res*modpow(p,e,pms)%pms;
     return res;
   }
-  ll comb(int n, int k){
+  ll operator()(int n, int k){
     if(n<0 || k<0 || n<k) return 0;
     vector<long long> vb, vm;
     for (auto ps : pf) {

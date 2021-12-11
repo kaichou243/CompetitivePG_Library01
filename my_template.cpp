@@ -743,28 +743,6 @@ namespace FFT {
   }
 };
 namespace NTT {
-    long long modpow(long long a, long long n, int mod) {
-        long long res = 1;
-        while (n > 0) {
-            if (n & 1) res = res * a % mod;
-            a = a * a % mod;
-            n >>= 1;
-        }
-        return res;
-    }
- 
-    long long modinv(long long a, int mod) {
-        long long b = mod, u = 1, v = 0;
-        while (b) {
-            long long t = a / b;
-            a -= t * b, swap(a, b);
-            u -= t * v, swap(u, v);
-        }
-        u %= mod;
-        if (u < 0) u += mod;
-        return u;
-    }
- 
     int calc_primitive_root(int mod) {
         if (mod == 2) return 1;
         if (mod == 167772161) return 3;

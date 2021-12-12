@@ -1,22 +1,22 @@
 # CompetitivePG_Library01
-•BreadthFirstSearch
+-BreadthFirstSearch
 
-•FastFourierTransform
+-FastFourierTransform
 
-•NumberTheoreticTransform
+-NumberTheoreticTransform
 
-•SegmentTree 
+-SegmentTree 
 
-•LazySegmentTree
+-LazySegmentTree
 
-•StronglyConnectedComponents
+-StronglyConnectedComponents
 
-•LowestCommonAncestor
+-LowestCommonAncestor
 
-•UnionFind
+-UnionFind
 
-•BinomialCoefficient (Any mod)
+-BinomialCoefficient (Any mod)
 
-•MaxFlow (Dinic's Algorithm)
+-MaxFlow (Dinic's Algorithm)
 
-•Modint
+-Modint

@@ -60,7 +60,7 @@ P ChineseRem(const vector<ll> &b, const vector<ll> &m) {
 }
 template<int m> struct Comb{
   unordered_map<int,tuple<ll,vector<ll>,vector<ll>>> mp;
-  int n_,m;
+  int n_;
   ll p_, pm_;
   vector<ll> ord_, fact_;
   vector<P> pf;

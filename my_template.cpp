@@ -125,6 +125,15 @@ template<int MOD> struct Fp{
     if (n & 1) t = t * a;
     return t;
   }
+  friend constexpr Fp<MOD> modinv(const Fp<MOD>& r) noexcept {
+        long long a = r.val, b = MOD, u = 1, v = 0;
+        while (b) {
+            long long t = a / b;
+            a -= t * b, swap(a, b);
+            u -= t * v, swap(u, v);
+        }
+        return Fp<MOD>(u);
+  }
 };
 struct SCCgraph{
   // input
@@ -917,6 +926,209 @@ namespace NTT {
         return res;
     }
 };
+// Formal Power Series
+template <typename mint> struct FPS : vector<mint> {
+    using vector<mint>::vector;
+ 
+    // constructor
+    FPS(const vector<mint>& r) : vector<mint>(r) {}
+ 
+    // core operator
+    inline FPS pre(int siz) const {
+        return FPS(begin(*this), begin(*this) + min((int)this->size(), siz));
+    }
+    inline FPS rev() const {
+        FPS res = *this;
+        reverse(begin(res), end(res));
+        return res;
+    }
+    inline FPS& normalize() {
+        while (!this->empty() && this->back() == 0) this->pop_back();
+        return *this;
+    }
+ 
+    // basic operator
+    inline FPS operator - () const noexcept {
+        FPS res = (*this);
+        for (int i = 0; i < (int)res.size(); ++i) res[i] = -res[i];
+        return res;
+    }
+    inline FPS operator + (const mint& v) const { return FPS(*this) += v; }
+    inline FPS operator + (const FPS& r) const { return FPS(*this) += r; }
+    inline FPS operator - (const mint& v) const { return FPS(*this) -= v; }
+    inline FPS operator - (const FPS& r) const { return FPS(*this) -= r; }
+    inline FPS operator * (const mint& v) const { return FPS(*this) *= v; }
+    inline FPS operator * (const FPS& r) const { return FPS(*this) *= r; }
+    inline FPS operator / (const mint& v) const { return FPS(*this) /= v; }
+    inline FPS operator << (int x) const { return FPS(*this) <<= x; }
+    inline FPS operator >> (int x) const { return FPS(*this) >>= x; }
+    inline FPS& operator += (const mint& v) {
+        if (this->empty()) this->resize(1);
+        (*this)[0] += v;
+        return *this;
+    }
+    inline FPS& operator += (const FPS& r) {
+        if (r.size() > this->size()) this->resize(r.size());
+        for (int i = 0; i < (int)r.size(); ++i) (*this)[i] += r[i];
+        return this->normalize();
+    }
+    inline FPS& operator -= (const mint& v) {
+        if (this->empty()) this->resize(1);
+        (*this)[0] -= v;
+        return *this;
+    }
+    inline FPS& operator -= (const FPS& r) {
+        if (r.size() > this->size()) this->resize(r.size());
+        for (int i = 0; i < (int)r.size(); ++i) (*this)[i] -= r[i];
+        return this->normalize();
+    }
+    inline FPS& operator *= (const mint& v) {
+        for (int i = 0; i < (int)this->size(); ++i) (*this)[i] *= v;
+        return *this;
+    }
+    inline FPS& operator *= (const FPS& r) {
+        return *this = NTT::mul((*this), r);
+    }
+    inline FPS& operator /= (const mint& v) {
+        assert(v != 0);
+        mint iv = modinv(v);
+        for (int i = 0; i < (int)this->size(); ++i) (*this)[i] *= iv;
+        return *this;
+    }
+    inline FPS& operator <<= (int x) {
+        FPS res(x, 0);
+        res.insert(res.end(), begin(*this), end(*this));
+        return *this = res;
+    }
+    inline FPS& operator >>= (int x) {
+        FPS res;
+        res.insert(res.end(), begin(*this) + x, end(*this));
+        return *this = res;
+    }
+    inline mint eval(const mint& v){
+        mint res = 0;
+        for (int i = (int)this->size()-1; i >= 0; --i) {
+            res *= v;
+            res += (*this)[i];
+        }
+        return res;
+    }
+    inline friend FPS gcd(const FPS& f, const FPS& g) {
+        if (g.empty()) return f;
+        return gcd(g, f % g);
+    }
+
+    // advanced operation
+    // df/dx
+    inline friend FPS diff(const FPS& f) {
+        int n = (int)f.size();
+        FPS res(n-1);
+        for (int i = 1; i < n; ++i) res[i-1] = f[i] * i;
+        return res;
+    }
+
+    // \int f dx
+    inline friend FPS integral(const FPS& f) {
+        int n = (int)f.size();
+        FPS res(n+1, 0);
+        for (int i = 0; i < n; ++i) res[i+1] = f[i] / (i+1);
+        return res;
+    }
+
+    // inv(f), f[0] must not be 0
+    inline friend FPS inv(const FPS& f, int deg) {
+        assert(f[0] != 0);
+        if (deg < 0) deg = (int)f.size();
+        FPS res({mint(1) / f[0]});
+        for (int i = 1; i < deg; i <<= 1) {
+            res = (res + res - res * res * f.pre(i << 1)).pre(i << 1);
+        }
+        res.resize(deg);
+        return res;
+    }
+    inline friend FPS inv(const FPS& f) {
+        return inv(f, f.size());
+    }
+
+    // division, r must be normalized (r.back() must not be 0)
+    inline FPS& operator /= (const FPS& r) {
+        assert(!r.empty());
+        assert(r.back() != 0);
+        this->normalize();
+        if (this->size() < r.size()) {
+            this->clear();
+            return *this;
+        }
+        int need = (int)this->size() - (int)r.size() + 1;
+        *this = ((*this).rev().pre(need) * inv(r.rev(), need)).pre(need).rev();
+        return *this;
+    }
+    inline FPS& operator %= (const FPS &r) {
+        assert(!r.empty());
+        assert(r.back() != 0);
+        this->normalize();
+        FPS q = (*this) / r;
+        return *this -= q * r;
+    }
+    inline FPS operator / (const FPS& r) const { return FPS(*this) /= r; }
+    inline FPS operator % (const FPS& r) const { return FPS(*this) %= r; }
+
+    // log(f) = \int f'/f dx, f[0] must be 1
+    inline friend FPS log(const FPS& f, int deg) {
+        assert(f[0] == 1);
+        FPS res = integral(diff(f) * inv(f, deg));
+        res.resize(deg);
+        return res;
+    }
+    inline friend FPS log(const FPS& f) {
+        return log(f, f.size());
+    }
+
+    // exp(f), f[0] must be 0
+    inline friend FPS exp(const FPS& f, int deg) {
+        assert(f[0] == 0);
+        FPS res(1, 1);
+        for (int i = 1; i < deg; i <<= 1) {
+            res = res * (f.pre(i<<1) - log(res, i<<1) + 1).pre(i<<1);
+        }
+        res.resize(deg);
+        return res;
+    }
+    inline friend FPS exp(const FPS& f) {
+        return exp(f, f.size());
+    }
+
+    // pow(f) = exp(e * log f)
+    inline friend FPS pow(const FPS& f, long long e, int deg) {
+        long long i = 0;
+        while (i < (int)f.size() && f[i] == 0) ++i;
+        if (i == (int)f.size()) return FPS(deg, 0);
+        if (i * e >= deg) return FPS(deg, 0);
+        mint k = f[i];
+        FPS res = exp(log((f >> i) / k, deg) * e, deg) * modpow(k, e) << (e * i);
+        res.resize(deg);
+        return res;
+    }
+    inline friend FPS pow(const FPS& f, long long e) {
+        return pow(f, e, f.size());
+    }
+
+    // sqrt(f), f[0] must be 1
+    inline friend FPS sqrt_base(const FPS& f, int deg) {
+        assert(f[0] == 1);
+        mint inv2 = mint(1) / 2;
+        FPS res(1, 1);
+        for (int i = 1; i < deg; i <<= 1) {
+            res = (res + f.pre(i << 1) * inv(res, i << 1)).pre(i << 1);
+            for (mint& x : res) x *= inv2;
+        }
+        res.resize(deg);
+        return res;
+    }
+    inline friend FPS sqrt_base(const FPS& f) {
+        return sqrt_base(f, f.size());
+    }
+};
 struct SegP{
     int n;
     vector<P> dat;
@@ -1060,6 +1272,92 @@ vector<int> topo_sort(const vector<vector<int>> &G) {
   }
   return ret;
 }
+template <typename mint> FPS<mint> product(vector<FPS<mint>> a){
+  int siz=1;
+  while(siz<int(a.size())){
+    siz<<=1;
+  }
+  vector<FPS<mint>> res(siz*2-1,{1});
+  for(int i=0;i<int(a.size());++i){
+    res[i+siz-1]=a[i];
+  }
+  for(int i=siz-2;i>=0;--i){
+    res[i]=res[2*i+1]*res[2*i+2];
+  }
+  return res[0];
+}
+template<typename mint> FPS<mint> inv_sum(int M,vector<FPS<mint>> f){
+  int siz=1;
+  while(siz<int(f.size())){
+    siz<<=1;
+  }
+  vector<FPS<mint>> mol(siz*2-1),dem(siz*2-1,{1});
+  for(size_t i=0;i<f.size();++i){
+    mol[i+siz-1]={1};
+    dem[i+siz-1]=f[i];
+  }
+  for(int i=siz-2;i>=0;--i){
+    dem[i]=dem[2*i+1]*dem[2*i+2];
+    mol[i]=mol[2*i+1]*dem[2*i+2]+mol[2*i+2]*dem[2*i+1];
+  }
+  mol[0]*=inv(dem[0]);
+  return mol[0];
+}
+template <typename mint> FPS<mint> inv(FPS<mint> A, int n) { // Q-(1/Q-A)/(-Q^{-2})
+	FPS<mint> B{mint(1)/A[0]};
+	while (sz(B) < n) { int x = 2*sz(B);
+		B = RSZ(2*B-RSZ(A,x)*B*B,x); }
+	return RSZ(B,n);
+}
+template <typename mint> FPS<mint> rev(FPS<mint> p) { reverse(p.begin(),p.end()); return p; }
+template <typename mint> FPS<mint> RSZ(FPS<mint> p, int x) { p.resize(x); return p; }
+template <typename mint> pair<FPS<mint>,FPS<mint>> divi(const FPS<mint>& f, const FPS<mint>& g) { 
+	if (sz(f) < sz(g)) return {{},f};
+	FPS<mint> q = NTT::mul(inv(rev(g),sz(f)-sz(g)+1),rev(f));
+	q = rev(RSZ(q,sz(f)-sz(g)+1));
+	auto r = RSZ(f-NTT::mul(q,g),sz(g)-1); return {q,r};
+}
+template <typename mint>
+void segProd(vector<FPS<mint>>& stor, vector<mint>& v, int ind, int l, int r) { // v -> places to evaluate at
+	if (l == r) { stor[ind] = {-v[l],1}; return; }
+	int m = (l+r)/2; segProd(stor,v,2*ind,l,m); segProd(stor,v,2*ind+1,m+1,r);
+	stor[ind] = stor[2*ind]*stor[2*ind+1];
+}
+template <typename mint>
+void evalAll(vector<FPS<mint>>& stor, vector<mint>& res,FPS<mint> v, int ind = 1) {
+	v = divi(v,stor[ind]).second;
+	if (sz(stor[ind]) == 2) { res.push_back(sz(v)?v[0]:mint(0)); return; }
+	evalAll(stor,res,v,2*ind); evalAll(stor,res,v,2*ind+1);
+}
+template <typename mint> vector<mint> multieval(FPS<mint> v, vector<mint> p) {
+	vector<FPS<mint>> stor(4*sz(p)); segProd(stor,p,1,0,sz(p)-1);
+	vector<mint> res; evalAll(stor,res,v); return res; }
+
+template <typename mint> FPS<mint> combAll(vector<FPS<mint>>& stor, FPS<mint>& dems, int ind, int l, int r) {
+	if (l == r) return {dems[l]};
+	int m = (l+r)/2;
+	FPS<mint> a = combAll(stor,dems,2*ind,l,m), b = combAll(stor,dems,2*ind+1,m+1,r);
+	return a*stor[2*ind+1]+b*stor[2*ind];
+}
+template <typename mint> FPS<mint> interpolate(vector<mint> x,vector<mint> y) {
+  int n=sz(x);
+  vector<FPS<mint>> a;
+  for(int i=0;i<n;i++){
+    FPS<mint> b={-x[i],mint(1)};
+    a.push_back(b);
+  }
+  FPS<mint> g=product(a);
+  FPS<mint> g_=diff(g);
+  vector<mint> evaled=multieval(g_,x);
+  vector<FPS<mint>> c(n);
+  for(int i=0;i<n;i++) y[i]=mint(1)/y[i];
+  for(int i=0;i<n;i++){
+    FPS<mint> d={-x[i],1};
+    mint k=evaled[i]*y[i];
+    c[i]=d*k;
+  }
+  return RSZ(g*inv_sum(n,c),n);
+}
 template <typename T>
 vector<int> compress(vector<T> &x){
   vector<T> vals=x;
@@ -1073,5 +1371,6 @@ vector<int> compress(vector<T> &x){
   }
   return res;
 }
+using mint=Fp<998244353>;
 int main(){
 }

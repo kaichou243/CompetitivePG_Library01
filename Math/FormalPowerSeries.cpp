@@ -1,3 +1,6 @@
+/*
+  verified with Library Checker
+*/
 #include<bits/stdc++.h>
 #pragma GCC target("avx2")
 #pragma GCC optimize("O3")

@@ -5,6 +5,8 @@
 
 -NumberTheoreticTransform
 
+-FormalPowerSeries
+
 -SegmentTree 
 
 -LazySegmentTree

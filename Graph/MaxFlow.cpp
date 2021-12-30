@@ -1,4 +1,8 @@
 //ABC010-D
+/*
+  Dinic's Algorithm
+  Capacity Scaling
+*/
 #include<bits/stdc++.h>
 using namespace std;
 using FLOW=int;

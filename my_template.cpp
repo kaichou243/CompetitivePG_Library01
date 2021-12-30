@@ -16,36 +16,7 @@ struct Edge {
     ll to;
     ll cost;
 };
-struct edge {
-    int rev, from, to;
-    FLOW cap, icap;
-    edge(int r, int f, int t, FLOW c) : rev(r), from(f), to(t), cap(c), icap(c) {}
-    friend ostream& operator << (ostream& s, const edge& E) {
-        if (E.cap > 0) return s << E.from << "->" << E.to << '(' << E.cap << ')';
-        else return s;
-    }
-};
 using Graph=vector<vector<Edge>>;
-struct MaxFlowGraph{
-    int V;
-    vector<vector<edge>> list;
- 
-    MaxFlowGraph(int n = 0) : V(n), list(n) { for (int i = 0; i < n; ++i) list[i].clear(); }
-    void init(int n = 0) { V = n; list.resize(n); for (int i = 0; i < n; ++i) list[i].clear(); }
-    void resize(int n = 0) { V = n; }
-    void reset() { for (int i = 0; i < V; ++i) for (int j = 0; j < list[i].size(); ++j) list[i][j].cap = list[i][j].icap; }
-    inline vector<edge>& operator [] (int i) { return list[i]; }
- 
-    edge &redge(edge e) {
-        if (e.from != e.to) return list[e.to][e.rev];
-        else return list[e.to][e.rev + 1];
-    }
- 
-    void addedge(int from, int to, FLOW cap) {
-        list[from].push_back(edge((int)list[to].size(), from, to, cap));
-        list[to].push_back(edge((int)list[from].size() - 1, to, from, 0));
-    }
-};
 template <typename T>
 bool chmax(T &a,const T& b){
   if (a<b){
@@ -381,60 +352,172 @@ struct UnionFind{
     return edge_num[root(x)];
   }
   vector<int> get_roots(){
-    unordered_set<int> st;
+    vector<int> res;
     for(int i=0;i<n;i++){
-      st.insert(root(i));
+      if(data[i]<0) res.push_back(i);
     }
-    vector<int> res(st.begin(),st.end());
     return res;
   }
 };
-void dibfs(MaxFlowGraph &G, int s,vector<int> &level) {
-    for (int i = 0; i < G.V; ++i) level[i] = -1;
-    level[s] = 0;
-    queue<int> que;
+template< typename flow_t >
+struct MFGraph{
+  static_assert(is_integral< flow_t >::value, "template parameter flow_t must be integral type");
+  const flow_t INF;
+  struct edge {
+    int to;
+    flow_t cap;
+    int rev;
+    bool isrev;
+    int idx;
+  };
+
+  vector< vector< edge > > graph;
+  vector< int > min_cost, iter;
+  flow_t max_cap;
+
+  explicit MFGraph(int V) : INF(numeric_limits< flow_t >::max()), graph(V), max_cap(0) {}
+
+  void add_edge(int from, int to, flow_t cap, int idx = -1) {
+    max_cap = max(max_cap, cap);
+    graph[from].emplace_back((edge) {to, cap, (int) graph[to].size(), false, idx});
+    graph[to].emplace_back((edge) {from, 0, (int) graph[from].size() - 1, true, idx});
+  }
+
+  bool build_augment_path(int s, int t, const flow_t &base) {
+    min_cost.assign(graph.size(), -1);
+    queue< int > que;
+    min_cost[s] = 0;
     que.push(s);
-    while (!que.empty()) {
-        int v = que.front();
+    while(!que.empty() && min_cost[t] == -1) {
+      int p = que.front();
+      que.pop();
+      for(auto &e : graph[p]) {
+        if(e.cap >= base && min_cost[e.to] == -1) {
+          min_cost[e.to] = min_cost[p] + 1;
+          que.push(e.to);
+        }
+      }
+    }
+    return min_cost[t] != -1;
+  }
+
+  flow_t find_augment_path(int idx, const int t, flow_t base, flow_t flow) {
+    if(idx == t) return flow;
+    flow_t sum = 0;
+    for(int &i = iter[idx]; i < (int)graph[idx].size(); i++) {
+      edge &e = graph[idx][i];
+      if(e.cap >= base && min_cost[idx] < min_cost[e.to]) {
+        flow_t d = find_augment_path(e.to, t, base, min(flow - sum, e.cap));
+        if(d > 0) {
+          e.cap -= d;
+          graph[e.to][e.rev].cap += d;
+          sum += d;
+          if(flow - sum < base) break;
+        }
+      }
+    }
+    return sum;
+  }
+
+  flow_t max_flow(int s, int t) {
+    if(max_cap == flow_t(0)) return flow_t(0);
+    flow_t flow = 0;
+    for(int i = 63 - __builtin_clzll(max_cap); i >= 0; i--) {
+      flow_t now = flow_t(1) << i;
+      while(build_augment_path(s, t, now)) {
+        iter.assign(graph.size(), 0);
+        flow += find_augment_path(s, t, now, INF);
+      }
+    }
+    return flow;
+  }
+
+  void output() {
+    for(int i = 0; i < graph.size(); i++) {
+      for(auto &e : graph[i]) {
+        if(e.isrev) continue;
+        auto &rev_e = graph[e.to][e.rev];
+        cout << i << "->" << e.to << " (flow: " << rev_e.cap << "/" << e.cap + rev_e.cap << ")" << endl;
+      }
+    }
+  }
+};
+template< typename flow_t, typename cost_t >
+struct MCFGraph{
+  struct edge {
+    int to;
+    flow_t cap;
+    cost_t cost;
+    int rev;
+    bool isrev;
+  };
+
+  vector< vector< edge > > graph;
+  vector< cost_t > potential, min_cost;
+  vector< int > prevv, preve;
+  const cost_t INF;
+
+  MCFGraph(int V) : graph(V), INF(numeric_limits< cost_t >::max()) {}
+
+  void add_edge(int from, int to, flow_t cap, cost_t cost) {
+    graph[from].emplace_back((edge) {to, cap, cost, (int) graph[to].size(), false});
+    graph[to].emplace_back((edge) {from, 0, -cost, (int) graph[from].size() - 1, true});
+  }
+
+  cost_t min_cost_flow(int s, int t, flow_t f) {
+    int V = (int) graph.size();
+    cost_t ret = 0;
+    using Pi = pair< cost_t, int >;
+    priority_queue< Pi, vector< Pi >, greater< Pi > > que;
+    potential.assign(V, 0);
+    preve.assign(V, -1);
+    prevv.assign(V, -1);
+
+    while(f > 0) {
+      min_cost.assign(V, INF);
+      que.emplace(0, s);
+      min_cost[s] = 0;
+      while(!que.empty()) {
+        Pi p = que.top();
         que.pop();
-        for (int i = 0; i < G[v].size(); ++i) {
-            edge &e = G[v][i];
-            if (level[e.to] < 0 && e.cap > 0) {
-                level[e.to] = level[v] + 1;
-                que.push(e.to);
-            }
+        if(min_cost[p.second] < p.first) continue;
+        for(int i = 0; i < (int)graph[p.second].size(); i++) {
+          edge &e = graph[p.second][i];
+          cost_t nextCost = min_cost[p.second] + e.cost + potential[p.second] - potential[e.to];
+          if(e.cap > 0 && min_cost[e.to] > nextCost) {
+            min_cost[e.to] = nextCost;
+            prevv[e.to] = p.second, preve[e.to] = i;
+            que.emplace(min_cost[e.to], e.to);
+          }
         }
+      }
+      if(min_cost[t] == INF) return -1;
+      for(int v = 0; v < V; v++) potential[v] += min_cost[v];
+      flow_t addflow = f;
+      for(int v = t; v != s; v = prevv[v]) {
+        addflow = min(addflow, graph[prevv[v]][preve[v]].cap);
+      }
+      f -= addflow;
+      ret += addflow * potential[t];
+      for(int v = t; v != s; v = prevv[v]) {
+        edge &e = graph[prevv[v]][preve[v]];
+        e.cap -= addflow;
+        graph[v][e.rev].cap += addflow;
+      }
     }
-}
- 
-FLOW didfs(MaxFlowGraph &G, int v, int t, FLOW f,vector<int> &level,vector<int> &iter) {
-    if (v == t) return f;
-    for (int &i = iter[v]; i < G[v].size(); ++i) {
-        edge &e = G[v][i], &re = G.redge(e);
-        if (level[v] < level[e.to] && e.cap > 0) {
-            FLOW d = didfs(G, e.to, t, min(f, e.cap),level,iter);
-            if (d > 0) {
-                e.cap -= d;
-                re.cap += d;
-                return d;
-            }
-        }
+    return ret;
+  }
+
+  void output() {
+    for(int i = 0; i < graph.size(); i++) {
+      for(auto &e : graph[i]) {
+        if(e.isrev) continue;
+        auto &rev_e = graph[e.to][e.rev];
+        cout << i << "->" << e.to << " (flow: " << rev_e.cap << "/" << rev_e.cap + e.cap << ")" << endl;
+      }
     }
-    return 0;
-}
-FLOW Dinic(MaxFlowGraph &G, int s, int t) {
-    FLOW res = 0;
-    vector<int> level(G.V),iter(G.V);
-    while (true) {
-        dibfs(G, s,level);
-        if (level[t] < 0) return res;
-        iter.assign(G.V,0);
-        FLOW flow;
-        while ((flow = didfs(G, s, t, inf,level,iter)) > 0) {
-            res += flow;
-        }
-    }
-}
+  }
+};
 ll mod(ll a, ll mod) {
     return (a%mod+mod)%mod;
 }
@@ -1128,6 +1211,23 @@ template <typename mint> struct FPS : vector<mint> {
     inline friend FPS sqrt_base(const FPS& f) {
         return sqrt_base(f, f.size());
     }
+    FPS taylor_shift(mint c) const {
+      int n = (int) this->size();
+      vector<mint> fact(n), rfact(n);
+      fact[0] = rfact[0] = mint(1);
+      for(int i = 1; i < n; i++) fact[i] = fact[i - 1] * mint(i);
+      rfact[n - 1] = mint(1) / fact[n - 1];
+      for(int i = n - 1; i > 1; i--) rfact[i - 1] = rfact[i] * mint(i);
+      FPS p(*this);
+      for(int i = 0; i < n; i++) p[i] *= fact[i];
+      p = p.rev();
+      FPS bs(n, mint(1));
+      for(int i = 1; i < n; i++) bs[i] = bs[i - 1] * c * rfact[i] * fact[i - 1];
+      p = (p * bs).pre(n);
+      p = p.rev();
+      for(int i = 0; i < n; i++) p[i] *= rfact[i];
+      return p;
+    }
 };
 struct SegP{
     int n;
@@ -1286,7 +1386,7 @@ template <typename mint> FPS<mint> product(vector<FPS<mint>> a){
   }
   return res[0];
 }
-template<typename mint> FPS<mint> inv_sum(int M,vector<FPS<mint>> f){
+template<typename mint> FPS<mint> inv_sum(vector<FPS<mint>> f){
   int siz=1;
   while(siz<int(f.size())){
     siz<<=1;
@@ -1350,13 +1450,25 @@ template <typename mint> FPS<mint> interpolate(vector<mint> x,vector<mint> y) {
   FPS<mint> g_=diff(g);
   vector<mint> evaled=multieval(g_,x);
   vector<FPS<mint>> c(n);
-  for(int i=0;i<n;i++) y[i]=mint(1)/y[i];
   for(int i=0;i<n;i++){
     FPS<mint> d={-x[i],1};
-    mint k=evaled[i]*y[i];
-    c[i]=d*k;
+    c[i]=d*evaled[i];
   }
-  return RSZ(g*inv_sum(n,c),n);
+  int siz=1;
+  while(siz<int(c.size())){
+    siz<<=1;
+  }
+  vector<FPS<mint>> mol(siz*2-1),dem(siz*2-1,{1});
+  for(size_t i=0;i<c.size();++i){
+    mol[i+siz-1]={y[i]};
+    dem[i+siz-1]=c[i];
+  }
+  for(int i=siz-2;i>=0;--i){
+    dem[i]=dem[2*i+1]*dem[2*i+2];
+    mol[i]=mol[2*i+1]*dem[2*i+2]+mol[2*i+2]*dem[2*i+1];
+  }
+  mol[0]*=inv(dem[0]);
+  return RSZ(g*mol[0],n);
 }
 template <typename T>
 vector<int> compress(vector<T> &x){

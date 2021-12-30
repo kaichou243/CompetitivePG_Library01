@@ -1,5 +1,5 @@
 /*
-  Primal Dual's Algorithm
+  Primal Dual Algorithm
 */
 #include<bits/stdc++.h>
 using namespace std;

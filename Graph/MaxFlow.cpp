@@ -3,95 +3,98 @@
 using namespace std;
 using FLOW=int;
 const FLOW INF = 1000000000;
+template< typename flow_t >
+struct MFGraph{
+  static_assert(is_integral< flow_t >::value, "template parameter flow_t must be integral type");
+  const flow_t INF;
+  struct edge {
+    int to;
+    flow_t cap;
+    int rev;
+    bool isrev;
+    int idx;
+  };
 
-struct Edge {
-    int rev, from, to;
-    FLOW cap, icap;
-    Edge(int r, int f, int t, FLOW c) : rev(r), from(f), to(t), cap(c), icap(c) {}
-    friend ostream& operator << (ostream& s, const Edge& E) {
-        if (E.cap > 0) return s << E.from << "->" << E.to << '(' << E.cap << ')';
-        else return s;
-    }
-};
+  vector< vector< edge > > graph;
+  vector< int > min_cost, iter;
+  flow_t max_cap;
 
-struct Graph {
-    int V;
-    vector<vector<Edge>> list;
+  explicit MFGraph(int V) : INF(numeric_limits< flow_t >::max()), graph(V), max_cap(0) {}
 
-    Graph(int n = 0) : V(n), list(n) { for (int i = 0; i < n; ++i) list[i].clear(); }
-    void init(int n = 0) { V = n; list.resize(n); for (int i = 0; i < n; ++i) list[i].clear(); }
-    void resize(int n = 0) { V = n; }
-    void reset() { for (int i = 0; i < V; ++i) for (int j = 0; j < list[i].size(); ++j) list[i][j].cap = list[i][j].icap; }
-    inline vector<Edge>& operator [] (int i) { return list[i]; }
+  void add_edge(int from, int to, flow_t cap, int idx = -1) {
+    max_cap = max(max_cap, cap);
+    graph[from].emplace_back((edge) {to, cap, (int) graph[to].size(), false, idx});
+    graph[to].emplace_back((edge) {from, 0, (int) graph[from].size() - 1, true, idx});
+  }
 
-    Edge &redge(Edge e) {
-        if (e.from != e.to) return list[e.to][e.rev];
-        else return list[e.to][e.rev + 1];
-    }
-
-    void addedge(int from, int to, FLOW cap) {
-        list[from].push_back(Edge((int)list[to].size(), from, to, cap));
-        list[to].push_back(Edge((int)list[from].size() - 1, to, from, 0));
-    }
-};
-
-void dibfs(Graph &G, int s,vector<int> &level) {
-    for (int i = 0; i < G.V; ++i) level[i] = -1;
-    level[s] = 0;
-    queue<int> que;
+  bool build_augment_path(int s, int t, const flow_t &base) {
+    min_cost.assign(graph.size(), -1);
+    queue< int > que;
+    min_cost[s] = 0;
     que.push(s);
-    while (!que.empty()) {
-        int v = que.front();
-        que.pop();
-        for (int i = 0; i < G[v].size(); ++i) {
-            Edge &e = G[v][i];
-            if (level[e.to] < 0 && e.cap > 0) {
-                level[e.to] = level[v] + 1;
-                que.push(e.to);
-            }
+    while(!que.empty() && min_cost[t] == -1) {
+      int p = que.front();
+      que.pop();
+      for(auto &e : graph[p]) {
+        if(e.cap >= base && min_cost[e.to] == -1) {
+          min_cost[e.to] = min_cost[p] + 1;
+          que.push(e.to);
         }
+      }
     }
-}
+    return min_cost[t] != -1;
+  }
 
-FLOW didfs(Graph &G, int v, int t, FLOW f,vector<int> &level,vector<int> &iter) {
-    if (v == t) return f;
-    for (int &i = iter[v]; i < G[v].size(); ++i) {
-        Edge &e = G[v][i], &re = G.redge(e);
-        if (level[v] < level[e.to] && e.cap > 0) {
-            FLOW d = didfs(G, e.to, t, min(f, e.cap),level,iter);
-            if (d > 0) {
-                e.cap -= d;
-                re.cap += d;
-                return d;
-            }
+  flow_t find_augment_path(int idx, const int t, flow_t base, flow_t flow) {
+    if(idx == t) return flow;
+    flow_t sum = 0;
+    for(int &i = iter[idx]; i < (int)graph[idx].size(); i++) {
+      edge &e = graph[idx][i];
+      if(e.cap >= base && min_cost[idx] < min_cost[e.to]) {
+        flow_t d = find_augment_path(e.to, t, base, min(flow - sum, e.cap));
+        if(d > 0) {
+          e.cap -= d;
+          graph[e.to][e.rev].cap += d;
+          sum += d;
+          if(flow - sum < base) break;
         }
+      }
     }
-    return 0;
-}
-FLOW Dinic(Graph &G, int s, int t) {
-    FLOW res = 0;
-    vector<int> level(G.V),iter(G.V);
-    while (true) {
-        dibfs(G, s,level);
-        if (level[t] < 0) return res;
-        iter.assign(G.V,0);
-        FLOW flow;
-        while ((flow = didfs(G, s, t, INF,level,iter)) > 0) {
-            res += flow;
-        }
+    return sum;
+  }
+
+  flow_t max_flow(int s, int t) {
+    if(max_cap == flow_t(0)) return flow_t(0);
+    flow_t flow = 0;
+    for(int i = 63 - __builtin_clzll(max_cap); i >= 0; i--) {
+      flow_t now = flow_t(1) << i;
+      while(build_augment_path(s, t, now)) {
+        iter.assign(graph.size(), 0);
+        flow += find_augment_path(s, t, now, INF);
+      }
     }
-}
+    return flow;
+  }
 
-
+  void output() {
+    for(int i = 0; i < graph.size(); i++) {
+      for(auto &e : graph[i]) {
+        if(e.isrev) continue;
+        auto &rev_e = graph[e.to][e.rev];
+        cout << i << "->" << e.to << " (flow: " << rev_e.cap << "/" << e.cap + rev_e.cap << ")" << endl;
+      }
+    }
+  }
+};
 int main() {
   int N,girl,E;
   cin>>N>>girl>>E;
-  Graph G(N+1);
+  MFGraph G(N+1);
   int t=N;
   for(int i=0;i<girl;i++){
     int p;
     cin>>p;
-    G.addedge(p,t,1);
+    G.add_edge(p,t,1);
   }
   for(int i=0;i<E;i++){
     int a,b;
@@ -99,5 +102,5 @@ int main() {
     G.addedge(a,b,1);
     G.addedge(b,a,1);
   }
-  cout<<Dinic(G,0,t)<<endl;
+  cout<<G.max_flow(0,t)<<endl;
 }

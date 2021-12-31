@@ -5,6 +5,7 @@
 #define FOR(i,n) for(int i = 0; i < (n); i++)
 #define sz(c) ((int)(c).size())
 #define ten(x) ((int)1e##x)
+#define all(v) (v).begin(), (v).end()
 using namespace std;
 using ll=long long;
 using FLOW=int;
@@ -631,15 +632,16 @@ template<int m> struct Comb{
   }
   ll operator()(int n, int k){
     if(n<0 || k<0 || n<k) return 0;
-    vector<long long> vb, vm;
-    for (auto ps : pf) {
-        long long p = ps.first, e = ps.second;
+    int sz=pf.size();
+    vector<long long> vb(sz), vm(sz);
+    for (int i=0;i<sz;i++) {
+        long long p = pf[i].first, e = pf[i].second;
         long long pm = pow(p,e);
         long long b = 1;
         b *= com(n, k ,p) % pm;
         b %= pm;
-        vm.push_back(pm);
-        vb.push_back(b);
+        vm[i]=pm;
+        vb[i]=b;
     }
     auto res = ChineseRem(vb,vm);
     return res.first;
@@ -717,6 +719,7 @@ ll Euler(ll n){
   }
   return res;
 }
+//dist must be initialized with INF
 void warshall_floyd(vector<vector<ll>> &dist,int n){
   for(int i=0;i<n;i++) dist[i][i]=0;
   for (int k = 0; k < n; k++){

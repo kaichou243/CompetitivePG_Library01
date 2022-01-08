@@ -1,6 +1,3 @@
-/*
-  verified with Library Checker
-*/
 #include<bits/stdc++.h>
 #pragma GCC target("avx2")
 #pragma GCC optimize("O3")
@@ -8,6 +5,7 @@
 #define FOR(i,n) for(int i = 0; i < (n); i++)
 #define sz(c) ((int)(c).size())
 #define ten(x) ((int)1e##x)
+#define all(v) (v).begin(), (v).end()
 using namespace std;
 using ll=long long;
 using FLOW=int;
@@ -20,7 +18,7 @@ template<int MOD> struct Fp{
   constexpr Fp(long long v = 0) noexcept : val(v % MOD) {
     if (val < 0) val += MOD;
   }
-  constexpr int getmod() const { return MOD; }
+  static constexpr int getmod() { return MOD; }
   constexpr Fp operator - () const noexcept {
     return val ? MOD - val : 0;
   }
@@ -88,9 +86,6 @@ template<int MOD> struct Fp{
         return Fp<MOD>(u);
   }
 };
-ll mod(ll a, ll mod) {
-    return (a%mod+mod)%mod;
-}
 ll modpow(ll a,ll n,ll mod){
   ll res=1;
   a%=mod;
@@ -221,46 +216,182 @@ namespace NTT {
         while (size_b < M) size_b <<= 1;
         return max(size_a, size_b) << 1;
     }
- 
-    // number-theoretic transform
-    template<class mint> void trans(vector<mint> &v, bool inv = false) {
-        if (v.empty()) return;
-        int N = (int)v.size();
-        int MOD = v[0].getmod();
-        int PR = calc_primitive_root(MOD);
-        static bool first = true;
-        static vector<long long> vbw(30), vibw(30);
-        if (first) {
-            first = false;
-            for (int k = 0; k < 30; ++k) {
-                vbw[k] = modpow(PR, (MOD - 1) >> (k + 1), MOD);
-                vibw[k] = modinv(vbw[k], MOD);
-            }
-        }
-        for (int i = 0, j = 1; j < N - 1; j++) {
-            for (int k = N >> 1; k > (i ^= k); k >>= 1);
-            if (i > j) swap(v[i], v[j]);
-        }
-        for (int k = 0, t = 2; t <= N; ++k, t <<= 1) {
-            long long bw = vbw[k];
-            if (inv) bw = vibw[k];
-            for (int i = 0; i < N; i += t) {
-                mint w = 1;
-                for (int j = 0; j < t/2; ++j) {
-                    int j1 = i + j, j2 = i + j + t/2;
-                    mint c1 = v[j1], c2 = v[j2] * w;
-                    v[j1] = c1 + c2;
-                    v[j2] = c1 - c2;
-                    w *= bw;
-                }
-            }
-        }
-        if (inv) {
-            long long invN = modinv(N, MOD);
-            for (int i = 0; i < N; ++i) v[i] = v[i] * invN;
-        }
+    constexpr int bsf_constexpr(unsigned int n) {
+      int x = 0;
+      while (!(n & (1 << x))) x++;
+      return x;
     }
- 
+    int bsf(unsigned int n) {
+      #ifdef _MSC_VER
+      unsigned long index;
+      _BitScanForward(&index, n);
+      return index;
+      #else
+      return __builtin_ctz(n);
+      #endif
+    }
+    template <class mint>
+    struct fft_info{
+      static constexpr int rank2 = bsf_constexpr(mint::getmod() - 1);
+      std::array<mint, rank2 + 1> root;   // root[i]^(2^i) == 1
+      std::array<mint, rank2 + 1> iroot;  // root[i] * iroot[i] == 1
+      std::array<mint, std::max(0, rank2 - 2 + 1)> rate2;
+      std::array<mint, std::max(0, rank2 - 2 + 1)> irate2;
+
+      std::array<mint, std::max(0, rank2 - 3 + 1)> rate3;
+      std::array<mint, std::max(0, rank2 - 3 + 1)> irate3;
+      int g;
+      fft_info(){
+        int MOD=mint::getmod();
+        g=calc_primitive_root(MOD);
+        root[rank2] = modpow(mint(g),(MOD - 1) >> rank2);
+        iroot[rank2] = modinv(root[rank2]);
+        for (int i = rank2 - 1; i >= 0; i--) {
+            root[i] = root[i + 1] * root[i + 1];
+            iroot[i] = iroot[i + 1] * iroot[i + 1];
+        }
+
+        {
+            mint prod = 1, iprod = 1;
+            for (int i = 0; i <= rank2 - 2; i++) {
+                rate2[i] = root[i + 2] * prod;
+                irate2[i] = iroot[i + 2] * iprod;
+                prod *= iroot[i + 2];
+                iprod *= root[i + 2];
+            }
+        }
+        {
+            mint prod = 1, iprod = 1;
+            for (int i = 0; i <= rank2 - 3; i++) {
+                rate3[i] = root[i + 3] * prod;
+                irate3[i] = iroot[i + 3] * iprod;
+                prod *= iroot[i + 3];
+                iprod *= root[i + 3];
+            }
+        }
+      }
+    };
+    int ceil_pow2(int n) {
+      int x = 0;
+      while ((1U << x) < (unsigned int)(n)) x++;
+      return x;
+    }
+    // number-theoretic transform
+    template <class mint>
+    void trans(std::vector<mint>& a) {
+      int n = int(a.size());
+      int h = ceil_pow2(n);
+      int MOD=a[0].getmod();
+      static const fft_info<mint> info;
+
+      int len = 0;  // a[i, i+(n>>len), i+2*(n>>len), ..] is transformed
+      while (len < h) {
+        if (h - len == 1) {
+            int p = 1 << (h - len - 1);
+            mint rot = 1;
+            for (int s = 0; s < (1 << len); s++) {
+                int offset = s << (h - len);
+                for (int i = 0; i < p; i++) {
+                    auto l = a[i + offset];
+                    auto r = a[i + offset + p] * rot;
+                    a[i + offset] = l + r;
+                    a[i + offset + p] = l - r;
+                }
+                if (s + 1 != (1 << len))
+                    rot *= info.rate2[bsf(~(unsigned int)(s))];
+            }
+            len++;
+        } else {
+            // 4-base
+            int p = 1 << (h - len - 2);
+            mint rot = 1, imag = info.root[2];
+            for (int s = 0; s < (1 << len); s++) {
+                mint rot2 = rot * rot;
+                mint rot3 = rot2 * rot;
+                int offset = s << (h - len);
+                for (int i = 0; i < p; i++) {
+                    auto mod2 = 1ULL * MOD * MOD;
+                    auto a0 = 1ULL * a[i + offset].val;
+                    auto a1 = 1ULL * a[i + offset + p].val * rot.val;
+                    auto a2 = 1ULL * a[i + offset + 2 * p].val * rot2.val;
+                    auto a3 = 1ULL * a[i + offset + 3 * p].val * rot3.val;
+                    auto a1na3imag =
+                        1ULL * mint(a1 + mod2 - a3).val * imag.val;
+                    auto na2 = mod2 - a2;
+                    a[i + offset] = a0 + a2 + a1 + a3;
+                    a[i + offset + 1 * p] = a0 + a2 + (2 * mod2 - (a1 + a3));
+                    a[i + offset + 2 * p] = a0 + na2 + a1na3imag;
+                    a[i + offset + 3 * p] = a0 + na2 + (mod2 - a1na3imag);
+                }
+                if (s + 1 != (1 << len))
+                    rot *= info.rate3[bsf(~(unsigned int)(s))];
+            }
+            len += 2;
+        }
+      }
+    }
+    template <class mint>
+    void trans_inv(std::vector<mint>& a) {
+      int n = int(a.size());
+      int h = ceil_pow2(n);
+
+      static const fft_info<mint> info;
+      int MOD=a[0].getmod();
+      int len = h;  // a[i, i+(n>>len), i+2*(n>>len), ..] is transformed
+      while (len) {
+        if (len == 1) {
+            int p = 1 << (h - len);
+            mint irot = 1;
+            for (int s = 0; s < (1 << (len - 1)); s++) {
+                int offset = s << (h - len + 1);
+                for (int i = 0; i < p; i++) {
+                    auto l = a[i + offset];
+                    auto r = a[i + offset + p];
+                    a[i + offset] = l + r;
+                    a[i + offset + p] =
+                        (unsigned long long)(MOD + l.val - r.val) *
+                        irot.val;
+                    ;
+                }
+                if (s + 1 != (1 << (len - 1)))
+                    irot *= info.irate2[bsf(~(unsigned int)(s))];
+            }
+            len--;
+        } else {
+            // 4-base
+            int p = 1 << (h - len);
+            mint irot = 1, iimag = info.iroot[2];
+            for (int s = 0; s < (1 << (len - 2)); s++) {
+                mint irot2 = irot * irot;
+                mint irot3 = irot2 * irot;
+                int offset = s << (h - len + 2);
+                for (int i = 0; i < p; i++) {
+                    auto a0 = 1ULL * a[i + offset + 0 * p].val;
+                    auto a1 = 1ULL * a[i + offset + 1 * p].val;
+                    auto a2 = 1ULL * a[i + offset + 2 * p].val;
+                    auto a3 = 1ULL * a[i + offset + 3 * p].val;
+
+                    auto a2na3iimag =
+                        1ULL *
+                        mint((MOD + a2 - a3) * iimag.val).val;
+
+                    a[i + offset] = a0 + a1 + a2 + a3;
+                    a[i + offset + 1 * p] =
+                        (a0 + (MOD - a1) + a2na3iimag) * irot.val;
+                    a[i + offset + 2 * p] =
+                        (a0 + a1 + (MOD - a2) + (MOD - a3)) *
+                        irot2.val;
+                    a[i + offset + 3 * p] =
+                        (a0 + (MOD - a1) + (MOD - a2na3iimag)) *
+                        irot3.val;
+                }
+                if (s + 1 != (1 << (len - 2)))
+                    irot *= info.irate3[bsf(~(unsigned int)(s))];
+            }
+            len -= 2;
+        }
+      }
+    }
     // for garner
     static constexpr int MOD0 = 754974721;
     static constexpr int MOD1 = 167772161;
@@ -286,49 +417,59 @@ namespace NTT {
  
     // mint
     template<class mint>
-    vector<mint> mul(const vector<mint> &A, const vector<mint> &B) {
+    vector<mint> mul(vector<mint> A,vector<mint> B) {
         if (A.empty() || B.empty()) return {};
-        int N = (int)A.size(), M = (int)B.size();
-        if (min(N, M) < 30) return naive_mul(A, B);
+        int n = int(A.size()), m = int(B.size());
+        if (min(n, m) < 30) return naive_mul(A, B);
         int MOD = A[0].getmod();
-        int size_fft = get_fft_size(N, M);
+        int z = 1 << ceil_pow2(n + m - 1);
         if (MOD == 998244353) {
-            vector<mint> a(size_fft), b(size_fft), c(size_fft);
-            for (int i = 0; i < N; ++i) a[i] = A[i];
-            for (int i = 0; i < M; ++i) b[i] = B[i];
-            trans(a), trans(b);
-            vector<mint> res(size_fft);
-            for (int i = 0; i < size_fft; ++i) res[i] = a[i] * b[i];
-            trans(res, true);
-            res.resize(N + M - 1);
-            return res;
+          A.resize(z);
+          trans(A);
+          B.resize(z);
+          trans(B);
+          for (int i = 0; i < z; i++) {
+            A[i] *= B[i];
+          }
+          trans_inv(A);
+          A.resize(n + m - 1);
+          mint iz = modinv(mint(z));
+          for (int i = 0; i < n + m - 1; i++) A[i] *= iz;
+          return A;
         }
-        vector<mint0> a0(size_fft, 0), b0(size_fft, 0), c0(size_fft, 0);
-        vector<mint1> a1(size_fft, 0), b1(size_fft, 0), c1(size_fft, 0);
-        vector<mint2> a2(size_fft, 0), b2(size_fft, 0), c2(size_fft, 0);
-        for (int i = 0; i < N; ++i)
+        vector<mint0> a0(z, 0), b0(z, 0);
+        vector<mint1> a1(z, 0), b1(z, 0);
+        vector<mint2> a2(z, 0), b2(z, 0);
+        for (int i = 0; i < n; ++i)
             a0[i] = A[i].val, a1[i] = A[i].val, a2[i] = A[i].val;
-        for (int i = 0; i < M; ++i)
+        for (int i = 0; i < m; ++i)
             b0[i] = B[i].val, b1[i] = B[i].val, b2[i] = B[i].val;
         trans(a0), trans(a1), trans(a2), trans(b0), trans(b1), trans(b2);
-        for (int i = 0; i < size_fft; ++i) {
-            c0[i] = a0[i] * b0[i];
-            c1[i] = a1[i] * b1[i];
-            c2[i] = a2[i] * b2[i];
+        for (int i = 0; i < z; ++i) {
+            a0[i] *= b0[i];
+            a1[i] *= b1[i];
+            a2[i] *= b2[i];
         }
-        trans(c0, true), trans(c1, true), trans(c2, true);
+        trans_inv(a0), trans_inv(a1), trans_inv(a2);
         static const mint mod0 = MOD0, mod01 = mod0 * MOD1;
-        vector<mint> res(N + M - 1);
-        for (int i = 0; i < N + M - 1; ++i) {
-            int y0 = c0[i].val;
-            int y1 = (imod0 * (c1[i] - y0)).val;
-            int y2 = (imod01 * (c2[i] - y0) - imod1 * y1).val;
+        mint0 i0=modinv(mint0(z));
+        mint1 i1=modinv(mint1(z));
+        mint2 i2=modinv(mint2(z));
+        vector<mint> res(n + m - 1);
+        for (int i = 0; i < n + m - 1; ++i) {
+            a0[i]*=i0;
+            a1[i]*=i1;
+            a2[i]*=i2;
+            int y0 = a0[i].val;
+            int y1 = (imod0 * (a1[i] - y0)).val;
+            int y2 = (imod01 * (a2[i] - y0) - imod1 * y1).val;
             res[i] = mod01 * y2 + mod0 * y1 + y0;
         }
         return res;
     }
  
     // long long
+  /*
     vector<long long> mul_ll(const vector<long long> &A, const vector<long long> &B) {
         if (A.empty() || B.empty()) return {};
         int N = (int)A.size(), M = (int)B.size();
@@ -347,7 +488,7 @@ namespace NTT {
             c1[i] = a1[i] * b1[i];
             c2[i] = a2[i] * b2[i];
         }
-        trans(c0, true), trans(c1, true), trans(c2, true);
+        trans_inv(c0), trans_inv(c1), trans_inv(c2);
         static const long long mod0 = MOD0, mod01 = mod0 * MOD1;
         vector<long long> res(N + M - 1);
         for (int i = 0; i < N + M - 1; ++i) {
@@ -358,6 +499,7 @@ namespace NTT {
         }
         return res;
     }
+    */
 };
 // Formal Power Series
 template <typename mint> struct FPS : vector<mint> {
@@ -561,6 +703,23 @@ template <typename mint> struct FPS : vector<mint> {
     inline friend FPS sqrt_base(const FPS& f) {
         return sqrt_base(f, f.size());
     }
+    FPS taylor_shift(mint c) const {
+      int n = (int) this->size();
+      vector<mint> fact(n), rfact(n);
+      fact[0] = rfact[0] = mint(1);
+      for(int i = 1; i < n; i++) fact[i] = fact[i - 1] * mint(i);
+      rfact[n - 1] = mint(1) / fact[n - 1];
+      for(int i = n - 1; i > 1; i--) rfact[i - 1] = rfact[i] * mint(i);
+      FPS p(*this);
+      for(int i = 0; i < n; i++) p[i] *= fact[i];
+      p = p.rev();
+      FPS bs(n, mint(1));
+      for(int i = 1; i < n; i++) bs[i] = bs[i - 1] * c * rfact[i] * fact[i - 1];
+      p = (p * bs).pre(n);
+      p = p.rev();
+      for(int i = 0; i < n; i++) p[i] *= rfact[i];
+      return p;
+    }
 };
 template <typename mint> FPS<mint> product(vector<FPS<mint>> a){
   int siz=1;
@@ -576,7 +735,7 @@ template <typename mint> FPS<mint> product(vector<FPS<mint>> a){
   }
   return res[0];
 }
-template<typename mint> FPS<mint> inv_sum(int M,vector<FPS<mint>> f){
+template<typename mint> FPS<mint> inv_sum(vector<FPS<mint>> f){
   int siz=1;
   while(siz<int(f.size())){
     siz<<=1;
@@ -640,13 +799,25 @@ template <typename mint> FPS<mint> interpolate(vector<mint> x,vector<mint> y) {
   FPS<mint> g_=diff(g);
   vector<mint> evaled=multieval(g_,x);
   vector<FPS<mint>> c(n);
-  for(int i=0;i<n;i++) y[i]=mint(1)/y[i];
   for(int i=0;i<n;i++){
     FPS<mint> d={-x[i],1};
-    mint k=evaled[i]*y[i];
-    c[i]=d*k;
+    c[i]=d*evaled[i];
   }
-  return RSZ(g*inv_sum(n,c),n);
+  int siz=1;
+  while(siz<int(c.size())){
+    siz<<=1;
+  }
+  vector<FPS<mint>> mol(siz*2-1),dem(siz*2-1,{1});
+  for(size_t i=0;i<c.size();++i){
+    mol[i+siz-1]={y[i]};
+    dem[i+siz-1]=c[i];
+  }
+  for(int i=siz-2;i>=0;--i){
+    dem[i]=dem[2*i+1]*dem[2*i+2];
+    mol[i]=mol[2*i+1]*dem[2*i+2]+mol[2*i+2]*dem[2*i+1];
+  }
+  mol[0]*=inv(dem[0]);
+  return RSZ(g*mol[0],n);
 }
 using mint=Fp<998244353>;
 int main(){

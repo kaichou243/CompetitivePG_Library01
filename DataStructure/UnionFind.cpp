@@ -1,7 +1,7 @@
 #include<bits/stdc++.h>
 using namespace std;
 using ll=long long;
-usng P=pair<ll,ll>;
+using P=pair<ll,ll>;
 struct UnionFind{
   vector<int> data;
   UnionFind(int N) : data(N,-1){}

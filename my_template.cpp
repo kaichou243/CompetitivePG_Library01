@@ -39,7 +39,7 @@ template<int MOD> struct Fp{
   constexpr Fp(long long v = 0) noexcept : val(v % MOD) {
     if (val < 0) val += MOD;
   }
-  constexpr int getmod() const { return MOD; }
+  static constexpr int getmod() { return MOD; }
   constexpr Fp operator - () const noexcept {
     return val ? MOD - val : 0;
   }
@@ -91,11 +91,13 @@ template<int MOD> struct Fp{
     return os << x.val;
   }
   friend constexpr Fp<MOD> modpow(const Fp<MOD>& a, long long n) noexcept {
-    if (n == 0) return 1;
-    auto t = modpow(a, n / 2);
-    t = t * t;
-    if (n & 1) t = t * a;
-    return t;
+    Fp<MOD> res=1,r=a;
+    while(n){
+      if(n&1) res*=r;
+      r*=r;
+      n>>=1;
+    }
+    return res;
   }
   friend constexpr Fp<MOD> modinv(const Fp<MOD>& r) noexcept {
         long long a = r.val, b = MOD, u = 1, v = 0;
@@ -176,41 +178,49 @@ struct SCCgraph{
     reconstruct();
   }
 };
-struct SegmentTree{
-  ll g(ll a,ll b){
-    return a+b; //g(a,b) : aとbで二項演算を行った結果を返す関数
-  }
+template<typename T> struct SegmentTree{
+  using F=function<T(T,T)>;
+  F fT;
+  const T et;
   int n;
-  vector<ll> dat;
-  SegmentTree(int N){
+  vector<T> dat;
+  SegmentTree(int N,F fT_,T et_) : fT(fT_),et(et_){
     n=1;
     while(n<N)n*=2;
-    dat.assign(2*n-1,0);
+    dat.assign(2*n-1,et_);
   }
-  void add(int k,ll x){
+  void add(int k,T x){
     k+=n-1;
     dat[k]+=x;
     while(k){
       k=(k-1)/2;
-      dat[k]=g(dat[k*2+1],dat[k*2+2]);
+      dat[k]=fT(dat[k*2+1],dat[k*2+2]);
     }
   }
-  void update(int k,ll x){
+  void apply(int k,T x){
+    k+=n-1;
+    dat[k]=fT(dat[k],x);
+    while(k){
+      k=(k-1)/2;
+      dat[k]=fT(dat[k*2+1],dat[k*2+2]);
+    }
+  }
+  void update(int k,T x){
     k+=n-1;
     dat[k]=x;
     while(k){
       k=(k-1)/2;
-      dat[k]=g(dat[k*2+1],dat[k*2+2]);
+      dat[k]=fT(dat[k*2+1],dat[k*2+2]);
     }
   }
-  ll query(int l,int r){
-    return query_sub(l,r,0,0,n); //区間[l,r)に対する二項演算の総積を返す
+  T query(int l,int r){
+    return query_sub(l,r,0,0,n);
   }
-  ll query_sub(int l,int r,int k=0,int a=0,int b=-1){
+  T query_sub(int l,int r,int k=0,int a=0,int b=-1){
     if(b<0)b=n;
-    if(r<=a || b<=l)return 0; //使う二項演算に合わせて単位元を変える。要注意!
+    if(r<=a || b<=l)return et;
     if(l<=a && b<=r)return dat[k];
-    return g(query_sub(l,r,k*2+1,a,(a+b)/2),query_sub(l,r,k*2+2,(a+b)/2,b));
+    return fT(query_sub(l,r,k*2+1,a,(a+b)/2),query_sub(l,r,k*2+2,(a+b)/2,b));
   }
 };
 struct FenwickTree{
@@ -312,15 +322,6 @@ struct LazySegTree {
       return query(i,i+1);
     }
 };
-// RAQ+RSQ
-using X = ll; //dat
-using M = ll; //lazy
-auto fx = [](X x1, X x2) -> X { return x1 + x2; }; //dat×dat 行う二項演算
-auto fa = [](X x, M m) -> X { return x + m; }; //datをlazyで更新する演算
-auto fm = [](M m1, M m2) -> M { return m1 + m2; }; //lazyの伝達を行う演算
-auto fp = [](M m, int n) -> M { return m * n; }; //p(m,n)=m＊m＊...＊m　子のdatをlazyで更新した時のdatの作用
-X ex = 0; //x＊ex=x (Xの単位元) dat
-M em = 0; //x＊em=x (Mの単位元) lazy
 struct UnionFind{
   int n;
   vector<int> data;
@@ -375,8 +376,9 @@ struct MFGraph{
   vector< vector< edge > > graph;
   vector< int > min_cost, iter;
   flow_t max_cap;
+  int SZ;
 
-  explicit MFGraph(int V) : INF(numeric_limits< flow_t >::max()), graph(V), max_cap(0) {}
+  explicit MFGraph(int V) : INF(numeric_limits< flow_t >::max()), graph(V), max_cap(0), SZ(V) {}
 
   void add_edge(int from, int to, flow_t cap, int idx = -1) {
     max_cap = max(max_cap, cap);
@@ -433,6 +435,25 @@ struct MFGraph{
     return flow;
   }
 
+  //after max_flow(s,t)
+  vector<bool> min_cut(int s) {
+        vector<bool> visited(SZ);
+        queue<int> que;
+        que.push(s);
+        while (!que.empty()) {
+            int p = que.front();
+            que.pop();
+            visited[p] = true;
+            for (auto e : graph[p]) {
+                if (e.cap && !visited[e.to]) {
+                    visited[e.to] = true;
+                    que.push(e.to);
+                }
+            }
+        }
+        return visited;
+    }
+  
   void output() {
     for(int i = 0; i < graph.size(); i++) {
       for(auto &e : graph[i]) {
@@ -874,46 +895,182 @@ namespace NTT {
         while (size_b < M) size_b <<= 1;
         return max(size_a, size_b) << 1;
     }
- 
-    // number-theoretic transform
-    template<class mint> void trans(vector<mint> &v, bool inv = false) {
-        if (v.empty()) return;
-        int N = (int)v.size();
-        int MOD = v[0].getmod();
-        int PR = calc_primitive_root(MOD);
-        static bool first = true;
-        static vector<long long> vbw(30), vibw(30);
-        if (first) {
-            first = false;
-            for (int k = 0; k < 30; ++k) {
-                vbw[k] = modpow(PR, (MOD - 1) >> (k + 1), MOD);
-                vibw[k] = modinv(vbw[k], MOD);
-            }
-        }
-        for (int i = 0, j = 1; j < N - 1; j++) {
-            for (int k = N >> 1; k > (i ^= k); k >>= 1);
-            if (i > j) swap(v[i], v[j]);
-        }
-        for (int k = 0, t = 2; t <= N; ++k, t <<= 1) {
-            long long bw = vbw[k];
-            if (inv) bw = vibw[k];
-            for (int i = 0; i < N; i += t) {
-                mint w = 1;
-                for (int j = 0; j < t/2; ++j) {
-                    int j1 = i + j, j2 = i + j + t/2;
-                    mint c1 = v[j1], c2 = v[j2] * w;
-                    v[j1] = c1 + c2;
-                    v[j2] = c1 - c2;
-                    w *= bw;
-                }
-            }
-        }
-        if (inv) {
-            long long invN = modinv(N, MOD);
-            for (int i = 0; i < N; ++i) v[i] = v[i] * invN;
-        }
+    constexpr int bsf_constexpr(unsigned int n) {
+      int x = 0;
+      while (!(n & (1 << x))) x++;
+      return x;
     }
+    int bsf(unsigned int n) {
+      #ifdef _MSC_VER
+      unsigned long index;
+      _BitScanForward(&index, n);
+      return index;
+      #else
+      return __builtin_ctz(n);
+      #endif
+    }
+    template <class mint>
+    struct fft_info{
+      static constexpr int rank2 = bsf_constexpr(mint::getmod() - 1);
+      std::array<mint, rank2 + 1> root;   // root[i]^(2^i) == 1
+      std::array<mint, rank2 + 1> iroot;  // root[i] * iroot[i] == 1
+      std::array<mint, std::max(0, rank2 - 2 + 1)> rate2;
+      std::array<mint, std::max(0, rank2 - 2 + 1)> irate2;
  
+      std::array<mint, std::max(0, rank2 - 3 + 1)> rate3;
+      std::array<mint, std::max(0, rank2 - 3 + 1)> irate3;
+      int g;
+      fft_info(){
+        int MOD=mint::getmod();
+        g=calc_primitive_root(MOD);
+        root[rank2] = modpow(mint(g),(MOD - 1) >> rank2);
+        iroot[rank2] = modinv(root[rank2]);
+        for (int i = rank2 - 1; i >= 0; i--) {
+            root[i] = root[i + 1] * root[i + 1];
+            iroot[i] = iroot[i + 1] * iroot[i + 1];
+        }
+ 
+        {
+            mint prod = 1, iprod = 1;
+            for (int i = 0; i <= rank2 - 2; i++) {
+                rate2[i] = root[i + 2] * prod;
+                irate2[i] = iroot[i + 2] * iprod;
+                prod *= iroot[i + 2];
+                iprod *= root[i + 2];
+            }
+        }
+        {
+            mint prod = 1, iprod = 1;
+            for (int i = 0; i <= rank2 - 3; i++) {
+                rate3[i] = root[i + 3] * prod;
+                irate3[i] = iroot[i + 3] * iprod;
+                prod *= iroot[i + 3];
+                iprod *= root[i + 3];
+            }
+        }
+      }
+    };
+    int ceil_pow2(int n) {
+      int x = 0;
+      while ((1U << x) < (unsigned int)(n)) x++;
+      return x;
+    }
+    // number-theoretic transform
+    template <class mint>
+    void trans(std::vector<mint>& a) {
+      int n = int(a.size());
+      int h = ceil_pow2(n);
+      int MOD=a[0].getmod();
+      static const fft_info<mint> info;
+ 
+      int len = 0;  // a[i, i+(n>>len), i+2*(n>>len), ..] is transformed
+      while (len < h) {
+        if (h - len == 1) {
+            int p = 1 << (h - len - 1);
+            mint rot = 1;
+            for (int s = 0; s < (1 << len); s++) {
+                int offset = s << (h - len);
+                for (int i = 0; i < p; i++) {
+                    auto l = a[i + offset];
+                    auto r = a[i + offset + p] * rot;
+                    a[i + offset] = l + r;
+                    a[i + offset + p] = l - r;
+                }
+                if (s + 1 != (1 << len))
+                    rot *= info.rate2[bsf(~(unsigned int)(s))];
+            }
+            len++;
+        } else {
+            // 4-base
+            int p = 1 << (h - len - 2);
+            mint rot = 1, imag = info.root[2];
+            for (int s = 0; s < (1 << len); s++) {
+                mint rot2 = rot * rot;
+                mint rot3 = rot2 * rot;
+                int offset = s << (h - len);
+                for (int i = 0; i < p; i++) {
+                    auto mod2 = 1ULL * MOD * MOD;
+                    auto a0 = 1ULL * a[i + offset].val;
+                    auto a1 = 1ULL * a[i + offset + p].val * rot.val;
+                    auto a2 = 1ULL * a[i + offset + 2 * p].val * rot2.val;
+                    auto a3 = 1ULL * a[i + offset + 3 * p].val * rot3.val;
+                    auto a1na3imag =
+                        1ULL * mint(a1 + mod2 - a3).val * imag.val;
+                    auto na2 = mod2 - a2;
+                    a[i + offset] = a0 + a2 + a1 + a3;
+                    a[i + offset + 1 * p] = a0 + a2 + (2 * mod2 - (a1 + a3));
+                    a[i + offset + 2 * p] = a0 + na2 + a1na3imag;
+                    a[i + offset + 3 * p] = a0 + na2 + (mod2 - a1na3imag);
+                }
+                if (s + 1 != (1 << len))
+                    rot *= info.rate3[bsf(~(unsigned int)(s))];
+            }
+            len += 2;
+        }
+      }
+    }
+    template <class mint>
+    void trans_inv(std::vector<mint>& a) {
+      int n = int(a.size());
+      int h = ceil_pow2(n);
+ 
+      static const fft_info<mint> info;
+      int MOD=a[0].getmod();
+      int len = h;  // a[i, i+(n>>len), i+2*(n>>len), ..] is transformed
+      while (len) {
+        if (len == 1) {
+            int p = 1 << (h - len);
+            mint irot = 1;
+            for (int s = 0; s < (1 << (len - 1)); s++) {
+                int offset = s << (h - len + 1);
+                for (int i = 0; i < p; i++) {
+                    auto l = a[i + offset];
+                    auto r = a[i + offset + p];
+                    a[i + offset] = l + r;
+                    a[i + offset + p] =
+                        (unsigned long long)(MOD + l.val - r.val) *
+                        irot.val;
+                    ;
+                }
+                if (s + 1 != (1 << (len - 1)))
+                    irot *= info.irate2[bsf(~(unsigned int)(s))];
+            }
+            len--;
+        } else {
+            // 4-base
+            int p = 1 << (h - len);
+            mint irot = 1, iimag = info.iroot[2];
+            for (int s = 0; s < (1 << (len - 2)); s++) {
+                mint irot2 = irot * irot;
+                mint irot3 = irot2 * irot;
+                int offset = s << (h - len + 2);
+                for (int i = 0; i < p; i++) {
+                    auto a0 = 1ULL * a[i + offset + 0 * p].val;
+                    auto a1 = 1ULL * a[i + offset + 1 * p].val;
+                    auto a2 = 1ULL * a[i + offset + 2 * p].val;
+                    auto a3 = 1ULL * a[i + offset + 3 * p].val;
+ 
+                    auto a2na3iimag =
+                        1ULL *
+                        mint((MOD + a2 - a3) * iimag.val).val;
+ 
+                    a[i + offset] = a0 + a1 + a2 + a3;
+                    a[i + offset + 1 * p] =
+                        (a0 + (MOD - a1) + a2na3iimag) * irot.val;
+                    a[i + offset + 2 * p] =
+                        (a0 + a1 + (MOD - a2) + (MOD - a3)) *
+                        irot2.val;
+                    a[i + offset + 3 * p] =
+                        (a0 + (MOD - a1) + (MOD - a2na3iimag)) *
+                        irot3.val;
+                }
+                if (s + 1 != (1 << (len - 2)))
+                    irot *= info.irate3[bsf(~(unsigned int)(s))];
+            }
+            len -= 2;
+        }
+      }
+    }
     // for garner
     static constexpr int MOD0 = 754974721;
     static constexpr int MOD1 = 167772161;
@@ -939,74 +1096,52 @@ namespace NTT {
  
     // mint
     template<class mint>
-    vector<mint> mul(const vector<mint> &A, const vector<mint> &B) {
+    vector<mint> mul(vector<mint> A,vector<mint> B) {
         if (A.empty() || B.empty()) return {};
-        int N = (int)A.size(), M = (int)B.size();
-        if (min(N, M) < 30) return naive_mul(A, B);
+        int n = int(A.size()), m = int(B.size());
+        if (min(n, m) < 30) return naive_mul(A, B);
         int MOD = A[0].getmod();
-        int size_fft = get_fft_size(N, M);
+        int z = 1 << ceil_pow2(n + m - 1);
         if (MOD == 998244353) {
-            vector<mint> a(size_fft), b(size_fft), c(size_fft);
-            for (int i = 0; i < N; ++i) a[i] = A[i];
-            for (int i = 0; i < M; ++i) b[i] = B[i];
-            trans(a), trans(b);
-            vector<mint> res(size_fft);
-            for (int i = 0; i < size_fft; ++i) res[i] = a[i] * b[i];
-            trans(res, true);
-            res.resize(N + M - 1);
-            return res;
+          A.resize(z);
+          trans(A);
+          B.resize(z);
+          trans(B);
+          for (int i = 0; i < z; i++) {
+            A[i] *= B[i];
+          }
+          trans_inv(A);
+          A.resize(n + m - 1);
+          mint iz = modinv(mint(z));
+          for (int i = 0; i < n + m - 1; i++) A[i] *= iz;
+          return A;
         }
-        vector<mint0> a0(size_fft, 0), b0(size_fft, 0), c0(size_fft, 0);
-        vector<mint1> a1(size_fft, 0), b1(size_fft, 0), c1(size_fft, 0);
-        vector<mint2> a2(size_fft, 0), b2(size_fft, 0), c2(size_fft, 0);
-        for (int i = 0; i < N; ++i)
+        vector<mint0> a0(z, 0), b0(z, 0);
+        vector<mint1> a1(z, 0), b1(z, 0);
+        vector<mint2> a2(z, 0), b2(z, 0);
+        for (int i = 0; i < n; ++i)
             a0[i] = A[i].val, a1[i] = A[i].val, a2[i] = A[i].val;
-        for (int i = 0; i < M; ++i)
+        for (int i = 0; i < m; ++i)
             b0[i] = B[i].val, b1[i] = B[i].val, b2[i] = B[i].val;
         trans(a0), trans(a1), trans(a2), trans(b0), trans(b1), trans(b2);
-        for (int i = 0; i < size_fft; ++i) {
-            c0[i] = a0[i] * b0[i];
-            c1[i] = a1[i] * b1[i];
-            c2[i] = a2[i] * b2[i];
+        for (int i = 0; i < z; ++i) {
+            a0[i] *= b0[i];
+            a1[i] *= b1[i];
+            a2[i] *= b2[i];
         }
-        trans(c0, true), trans(c1, true), trans(c2, true);
+        trans_inv(a0), trans_inv(a1), trans_inv(a2);
         static const mint mod0 = MOD0, mod01 = mod0 * MOD1;
-        vector<mint> res(N + M - 1);
-        for (int i = 0; i < N + M - 1; ++i) {
-            int y0 = c0[i].val;
-            int y1 = (imod0 * (c1[i] - y0)).val;
-            int y2 = (imod01 * (c2[i] - y0) - imod1 * y1).val;
-            res[i] = mod01 * y2 + mod0 * y1 + y0;
-        }
-        return res;
-    }
- 
-    // long long
-    vector<long long> mul_ll(const vector<long long> &A, const vector<long long> &B) {
-        if (A.empty() || B.empty()) return {};
-        int N = (int)A.size(), M = (int)B.size();
-        if (min(N, M) < 30) return naive_mul(A, B);
-        int size_fft = get_fft_size(N, M);
-        vector<mint0> a0(size_fft, 0), b0(size_fft, 0), c0(size_fft, 0);
-        vector<mint1> a1(size_fft, 0), b1(size_fft, 0), c1(size_fft, 0);
-        vector<mint2> a2(size_fft, 0), b2(size_fft, 0), c2(size_fft, 0);
-        for (int i = 0; i < N; ++i)
-            a0[i] = A[i], a1[i] = A[i], a2[i] = A[i];
-        for (int i = 0; i < M; ++i)
-            b0[i] = B[i], b1[i] = B[i], b2[i] = B[i];
-        trans(a0), trans(a1), trans(a2), trans(b0), trans(b1), trans(b2);
-        for (int i = 0; i < size_fft; ++i) {
-            c0[i] = a0[i] * b0[i];
-            c1[i] = a1[i] * b1[i];
-            c2[i] = a2[i] * b2[i];
-        }
-        trans(c0, true), trans(c1, true), trans(c2, true);
-        static const long long mod0 = MOD0, mod01 = mod0 * MOD1;
-        vector<long long> res(N + M - 1);
-        for (int i = 0; i < N + M - 1; ++i) {
-            int y0 = c0[i].val;
-            int y1 = (imod0 * (c1[i] - y0)).val;
-            int y2 = (imod01 * (c2[i] - y0) - imod1 * y1).val;
+        mint0 i0=modinv(mint0(z));
+        mint1 i1=modinv(mint1(z));
+        mint2 i2=modinv(mint2(z));
+        vector<mint> res(n + m - 1);
+        for (int i = 0; i < n + m - 1; ++i) {
+            a0[i]*=i0;
+            a1[i]*=i1;
+            a2[i]*=i2;
+            int y0 = a0[i].val;
+            int y1 = (imod0 * (a1[i] - y0)).val;
+            int y2 = (imod01 * (a2[i] - y0) - imod1 * y1).val;
             res[i] = mod01 * y2 + mod0 * y1 + y0;
         }
         return res;
@@ -1473,6 +1608,155 @@ template <typename mint> FPS<mint> interpolate(vector<mint> x,vector<mint> y) {
   mol[0]*=inv(dem[0]);
   return RSZ(g*mol[0],n);
 }
+template<int m> struct Perm{
+  unordered_map<int,tuple<ll,vector<ll>,vector<ll>>> mp;
+  int n_;
+  ll p_, pm_;
+  vector<ll> ord_, fact_;
+  vector<P> pf;
+  Perm(int n) : n_(n), ord_(n), fact_(n) { 
+    pf=prime_factorize(m); 
+    PERMinit();
+  }
+  void init(int n) {
+    ord_.resize(n);
+    fact_.resize(n);
+  }
+  void init(long long p, long long pm) {
+    p_=p,pm_=pm;
+    ord_[0]=ord_[1]=0;
+    fact_[0]=fact_[1]=1;
+    auto&[pms,ord,fac]=mp[p];
+    pms=pm;
+    ord.resize(n_);
+    fac.resize(n_);
+    ord[0]=ord[1]=0;
+    fac[0]=fac[1]=1;
+    for (int i=2;i<n_;i++) {
+      long long add=0;
+      long long ni=i;
+      while (ni % p == 0) add++,ni/=p;
+      ord_[i]=ord_[i-1]+add;
+      fact_[i]=fact_[ni-1]*ni%pm;
+      ord[i]=ord_[i];
+      fac[i]=fact_[i];
+    }
+  }
+  void init(long long p, long long pm, int n) {
+    init(n);
+    init(p, pm);
+  }
+  void PERMinit(){
+    for(auto p : pf){
+      ll ps=p.first,pfs=pow(p.first,p.second);
+      init(n_);
+      init(ps,pfs);
+    }
+  }
+  ll perm(ll n, ll r,int p) {
+    if (n<0 || r<0 || n<r) return 0;
+    auto&[pms,ord,fac]=mp[p];
+    ll e=ord[n]-ord[n-r];
+    ll res=fac[n]*modinv(fac[n-r]%pms,pms)%pms;
+    res=res*modpow(p,e,pms)%pms;
+    return res;
+  }
+  ll operator()(int n, int k){
+    if(n<0 || k<0 || n<k) return 0;
+    vector<long long> vb, vm;
+    for (auto ps : pf) {
+        long long p = ps.first, e = ps.second;
+        long long pm = pow(p,e);
+        long long b = 1;
+        b *= perm(n, k ,p) % pm;
+        b %= pm;
+        vm.push_back(pm);
+        vb.push_back(b);
+    }
+    auto res = ChineseRem(vb,vm);
+    return res.first;
+  }
+};
+struct HLD{
+  Graph G;
+  vector<int> siz,a,ind,edge,dep,vertex,par;
+  void dfs_sz(int v,int p){
+    int ret=1;
+    for(auto nv : G[v]){
+      if(nv.to==p) continue;
+      dfs_sz(nv.to,v);
+      ret+=siz[nv.to];
+    }
+    siz[v]=ret;
+  }
+  void Ddfs(int v,int p){
+    for(auto nv : G[v]){
+      if(nv.to==p) continue;
+      dep[nv.to]=dep[v]+1;
+      Ddfs(nv.to,v);
+    }
+  }
+  void hld(int v,int k,int p){
+    ind[v]=vertex.size();
+    a[v]=k;
+    vertex.push_back(v);
+    if(G[v].size()==1&&v!=0) return;
+    int mxind=-1;
+    int mx=0;
+    for(int i=0;i<(int)G[v].size();i++){
+      auto nv=G[v][i];
+      if(nv.to==p) continue;
+      if(siz[nv.to]>mx){
+        mx=siz[nv.to];
+        mxind=i;
+      }
+    }
+    hld(G[v][mxind].to,k,v);
+    for(int i=0;i<(int)G[v].size();i++){
+      auto nv=G[v][i];
+      if(nv.to==p) continue;
+      if(i!=mxind) hld(nv.to,nv.to,v);
+    }
+  }
+  void getpar(int v,int p){
+    par[v]=p;
+    for(auto nv : G[v]){
+      if(nv.to==p) continue;
+      getpar(nv.to,v);
+      edge[ind[nv.to]]=nv.cost;
+    }
+  }
+  HLD(const Graph &g) : siz((int)g.size()), a((int)g.size()), ind((int)g.size()), edge((int)g.size()), dep((int)g.size()), par((int)g.size()){
+    G=g;
+    dfs_sz(0,-1);
+    hld(0,0,-1);
+    getpar(0,-1);
+    Ddfs(0,-1);
+  }
+  //[l,r]
+  pair<int,int> getsubtree(int v){
+    return make_pair(ind[v],ind[v]+siz[v]-1);
+  }
+  //[l,r]...
+  vector<pair<int,int>> getpath(int u,int v){
+    vector<pair<int,int>> ret;
+    while(a[u]!=a[v]){
+      if(dep[a[u]]<=dep[a[v]]){
+        ret.push_back({ind[a[v]],ind[v]});
+        v=par[a[v]];
+      }else{
+        ret.push_back({ind[a[u]],ind[u]});
+        u=par[a[u]];
+      }
+    }
+    ret.push_back({min(ind[u],ind[v]),max(ind[u],ind[v])});
+    return ret;
+  }
+  int lca(int u,int v){
+    vector<pair<int,int>> path=getpath(u,v);
+    return vertex[path[path.size()-1].first];
+  }
+};
 template <typename T>
 vector<int> compress(vector<T> &x){
   vector<T> vals=x;
@@ -1486,6 +1770,249 @@ vector<int> compress(vector<T> &x){
   }
   return res;
 }
+/**
+ * @brief Succinct Indexable Dictionary(完備辞書)
+ */
+struct SuccinctIndexableDictionary {
+  size_t length;
+  size_t blocks;
+  vector< unsigned > bit, sum;
+
+  SuccinctIndexableDictionary() = default;
+
+  SuccinctIndexableDictionary(size_t length) : length(length), blocks((length + 31) >> 5) {
+    bit.assign(blocks, 0U);
+    sum.assign(blocks, 0U);
+  }
+
+  void set(int k) {
+    bit[k >> 5] |= 1U << (k & 31);
+  }
+
+  void build() {
+    sum[0] = 0U;
+    for(int i = 1; i < blocks; i++) {
+      sum[i] = sum[i - 1] + __builtin_popcount(bit[i - 1]);
+    }
+  }
+
+  bool operator[](int k) {
+    return (bool((bit[k >> 5] >> (k & 31)) & 1));
+  }
+
+  int rank(int k) {
+    return (sum[k >> 5] + __builtin_popcount(bit[k >> 5] & ((1U << (k & 31)) - 1)));
+  }
+
+  int rank(bool val, int k) {
+    return (val ? rank(k) : k - rank(k));
+  }
+};
+
+/*
+ * @brief Wavelet Matrix(ウェーブレット行列)
+ * @docs docs/wavelet-matrix.md
+ */
+template< typename T, int MAXLOG >
+struct WaveletMatrix {
+  size_t length;
+  SuccinctIndexableDictionary matrix[MAXLOG];
+  int mid[MAXLOG];
+
+  WaveletMatrix() = default;
+
+  WaveletMatrix(vector< T > v) : length(v.size()) {
+    vector< T > l(length), r(length);
+    for(int level = MAXLOG - 1; level >= 0; level--) {
+      matrix[level] = SuccinctIndexableDictionary(length + 1);
+      int left = 0, right = 0;
+      for(int i = 0; i < length; i++) {
+        if(((v[i] >> level) & 1)) {
+          matrix[level].set(i);
+          r[right++] = v[i];
+        } else {
+          l[left++] = v[i];
+        }
+      }
+      mid[level] = left;
+      matrix[level].build();
+      v.swap(l);
+      for(int i = 0; i < right; i++) {
+        v[left + i] = r[i];
+      }
+    }
+  }
+
+  pair< int, int > succ(bool f, int l, int r, int level) {
+    return {matrix[level].rank(f, l) + mid[level] * f, matrix[level].rank(f, r) + mid[level] * f};
+  }
+
+  // v[k]
+  T access(int k) {
+    T ret = 0;
+    for(int level = MAXLOG - 1; level >= 0; level--) {
+      bool f = matrix[level][k];
+      if(f) ret |= T(1) << level;
+      k = matrix[level].rank(f, k) + mid[level] * f;
+    }
+    return ret;
+  }
+
+  T operator[](const int &k) {
+    return access(k);
+  }
+
+  // count i s.t. (0 <= i < r) && v[i] == x
+  int rank(const T &x, int r) {
+    int l = 0;
+    for(int level = MAXLOG - 1; level >= 0; level--) {
+      tie(l, r) = succ((x >> level) & 1, l, r, level);
+    }
+    return r - l;
+  }
+
+  // k-th(0-indexed) smallest number in v[l,r)
+  T kth_smallest(int l, int r, int k) {
+    assert(0 <= k && k < r - l);
+    T ret = 0;
+    for(int level = MAXLOG - 1; level >= 0; level--) {
+      int cnt = matrix[level].rank(false, r) - matrix[level].rank(false, l);
+      bool f = cnt <= k;
+      if(f) {
+        ret |= T(1) << level;
+        k -= cnt;
+      }
+      tie(l, r) = succ(f, l, r, level);
+    }
+    return ret;
+  }
+
+  // k-th(0-indexed) largest number in v[l,r)
+  T kth_largest(int l, int r, int k) {
+    return kth_smallest(l, r, r - l - k - 1);
+  }
+
+  // count i s.t. (l <= i < r) && (v[i] < upper)
+  int range_freq(int l, int r, T upper) {
+    int ret = 0;
+    for(int level = MAXLOG - 1; level >= 0; level--) {
+      bool f = ((upper >> level) & 1);
+      if(f) ret += matrix[level].rank(false, r) - matrix[level].rank(false, l);
+      tie(l, r) = succ(f, l, r, level);
+    }
+    return ret;
+  }
+
+  // count i s.t. (l <= i < r) && (lower <= v[i] < upper)
+  int range_freq(int l, int r, T lower, T upper) {
+    return range_freq(l, r, upper) - range_freq(l, r, lower);
+  }
+
+  // max v[i] s.t. (l <= i < r) && (v[i] < upper)
+  T prev_value(int l, int r, T upper) {
+    int cnt = range_freq(l, r, upper);
+    return cnt == 0 ? T(-1) : kth_smallest(l, r, cnt - 1);
+  }
+
+  // min v[i] s.t. (l <= i < r) && (lower <= v[i])
+  T next_value(int l, int r, T lower) {
+    int cnt = range_freq(l, r, lower);
+    return cnt == r - l ? T(-1) : kth_smallest(l, r, cnt);
+  }
+};
+
+template< typename T, int MAXLOG >
+struct CompressedWaveletMatrix {
+  WaveletMatrix< int, MAXLOG > mat;
+  vector< T > ys;
+
+  CompressedWaveletMatrix(const vector< T > &v) : ys(v) {
+    sort(begin(ys), end(ys));
+    ys.erase(unique(begin(ys), end(ys)), end(ys));
+    vector< int > t(v.size());
+    for(int i = 0; i < v.size(); i++) t[i] = get(v[i]);
+    mat = WaveletMatrix< int, MAXLOG >(t);
+  }
+
+  inline int get(const T& x) {
+    return lower_bound(begin(ys), end(ys), x) - begin(ys);
+  }
+
+  T access(int k) {
+    return ys[mat.access(k)];
+  }
+
+  T operator[](const int &k) {
+    return access(k);
+  }
+
+  int rank(const T &x, int r) {
+    auto pos = get(x);
+    if(pos == ys.size() || ys[pos] != x) return 0;
+    return mat.rank(pos, r);
+  }
+
+  T kth_smallest(int l, int r, int k) {
+    return ys[mat.kth_smallest(l, r, k)];
+  }
+
+  T kth_largest(int l, int r, int k) {
+    return ys[mat.kth_largest(l, r, k)];
+  }
+
+  int range_freq(int l, int r, T upper) {
+    return mat.range_freq(l, r, get(upper));
+  }
+
+  int range_freq(int l, int r, T lower, T upper) {
+    return mat.range_freq(l, r, get(lower), get(upper));
+  }
+
+  T prev_value(int l, int r, T upper) {
+    auto ret = mat.prev_value(l, r, get(upper));
+    return ret == -1 ? T(-1) : ys[ret];
+  }
+
+  T next_value(int l, int r, T lower) {
+    auto ret = mat.next_value(l, r, get(lower));
+    return ret == -1 ? T(-1) : ys[ret];
+  }
+};
+template<typename T>
+vector<T> shortest_path_faster_algorithm(const Graph &G, int s) {
+  vector<T> dist(G.size(), INF);
+  vector<int> pending(G.size(), 0), times(G.size(), 0);
+  queue<int> que;
+  que.emplace(s);
+  pending[s]=true;
+  ++times[s];
+  dist[s]=0;
+  while(!que.empty()) {
+    int p = que.front();
+    que.pop();
+    pending[p] = false;
+    for(auto &e : G[p]) {
+      T next_cost = dist[p] + e.cost;
+      if(next_cost >= dist[e.to]) continue;
+      dist[e.to] = next_cost;
+      if(!pending[e.to]) {
+        if(++times[e.to] >= (int)G.size()) return vector<T>();
+        pending[e.to] = true;
+        que.emplace(e.to);
+      }
+    }
+  }
+  return dist;
+}
+// RAQ+RSQ
+using X = ll; //dat
+using M = ll; //lazy
+auto fx = [](X x1, X x2) -> X { return x1 + x2; }; //dat×dat 行う二項演算
+auto fa = [](X x, M m) -> X { return x + m; }; //datをlazyで更新する演算
+auto fm = [](M m1, M m2) -> M { return m1 + m2; }; //lazyの伝達を行う演算
+auto fp = [](M m, int n) -> M { return m * n; }; //p(m,n)=m＊m＊...＊m　子のdatをlazyで更新した時のdatの作用
+X ex = 0; //x＊ex=x (Xの単位元) dat
+M em = 0; //x＊em=x (Mの単位元) lazy
 using mint=Fp<998244353>;
 int main(){
 }

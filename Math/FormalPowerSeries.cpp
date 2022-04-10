@@ -629,6 +629,37 @@ template <typename mint> struct FPS : vector<mint> {
       return p;
     }
 };
+template <typename mint> FPS<mint> product(vector<FPS<mint>> a){
+  int siz=1;
+  while(siz<int(a.size())){
+    siz<<=1;
+  }
+  vector<FPS<mint>> res(siz*2-1,{1});
+  for(int i=0;i<int(a.size());++i){
+    res[i+siz-1]=a[i];
+  }
+  for(int i=siz-2;i>=0;--i){
+    res[i]=res[2*i+1]*res[2*i+2];
+  }
+  return res[0];
+}
+template<typename mint> FPS<mint> inv_sum(vector<FPS<mint>> f){
+  int siz=1;
+  while(siz<int(f.size())){
+    siz<<=1;
+  }
+  vector<FPS<mint>> mol(siz*2-1),dem(siz*2-1,{1});
+  for(size_t i=0;i<f.size();++i){
+    mol[i+siz-1]={1};
+    dem[i+siz-1]=f[i];
+  }
+  for(int i=siz-2;i>=0;--i){
+    dem[i]=dem[2*i+1]*dem[2*i+2];
+    mol[i]=mol[2*i+1]*dem[2*i+2]+mol[2*i+2]*dem[2*i+1];
+  }
+  mol[0]*=inv(dem[0]);
+  return mol[0];
+}
 using mint=Fp<998244353>;
 int main(){
 }

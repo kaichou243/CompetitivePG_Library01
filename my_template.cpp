@@ -8,7 +8,6 @@
 #define all(v) (v).begin(), (v).end()
 using namespace std;
 using ll=long long;
-using FLOW=int;
 using P = pair<ll,ll>;
 const long double PI=acos(-1);
 const ll INF=1e18;
@@ -108,6 +107,9 @@ template<int MOD> struct Fp{
         }
         return Fp<MOD>(u);
   }
+  explicit operator bool()const{
+		return val;
+  }
 };
 struct SCCgraph{
   // input
@@ -178,49 +180,49 @@ struct SCCgraph{
     reconstruct();
   }
 };
-template<typename T> struct SegmentTree{
-  using F=function<T(T,T)>;
-  F fT;
-  const T et;
+template<class T,T (*op)(T,T),T (*e)()> struct SegmentTree{
   int n;
   vector<T> dat;
-  SegmentTree(int N,F fT_,T et_) : fT(fT_),et(et_){
+  SegmentTree(int N){
     n=1;
     while(n<N)n*=2;
-    dat.assign(2*n-1,et_);
+    dat.assign(2*n,e());
   }
   void add(int k,T x){
-    k+=n-1;
+    k+=n;
     dat[k]+=x;
     while(k){
-      k=(k-1)/2;
-      dat[k]=fT(dat[k*2+1],dat[k*2+2]);
+      k>>=1;
+      dat[k]=op(dat[k*2],dat[k*2+1]);
     }
   }
   void apply(int k,T x){
-    k+=n-1;
-    dat[k]=fT(dat[k],x);
+    k+=n;
+    dat[k]=op(dat[k],x);
     while(k){
-      k=(k-1)/2;
-      dat[k]=fT(dat[k*2+1],dat[k*2+2]);
+      k>>=1;
+      dat[k]=op(dat[k*2],dat[k*2+1]);
     }
   }
-  void update(int k,T x){
-    k+=n-1;
+  void set(int k,T x){
+    k+=n;
     dat[k]=x;
     while(k){
-      k=(k-1)/2;
-      dat[k]=fT(dat[k*2+1],dat[k*2+2]);
+      k>>=1;
+      dat[k]=op(dat[k*2],dat[k*2+1]);
     }
   }
   T query(int l,int r){
-    return query_sub(l,r,0,0,n);
-  }
-  T query_sub(int l,int r,int k=0,int a=0,int b=-1){
-    if(b<0)b=n;
-    if(r<=a || b<=l)return et;
-    if(l<=a && b<=r)return dat[k];
-    return fT(query_sub(l,r,k*2+1,a,(a+b)/2),query_sub(l,r,k*2+2,(a+b)/2,b));
+    T prodl=e(),prodr=e();
+    l+=n;
+    r+=n;
+    while(l<r){
+      if(l&1) prodl=op(prodl,dat[l++]);
+      if(r&1) prodr=op(dat[--r],prodr);
+      l>>=1;
+      r>>=1;
+    }
+    return op(prodl,prodr);
   }
 };
 struct FenwickTree{
@@ -252,75 +254,85 @@ struct FenwickTree{
     return sum(r)-sum(l);
   }
 };
-template <typename X, typename M>
-struct LazySegTree {
-    using FX = function<X(X, X)>;
-    using FA = function<X(X, M)>;
-    using FM = function<M(M, M)>;
-    using FP = function<M(M, int)>;
-    int n;
-    FX fx;
-    FA fa;
-    FM fm;
-    FP fp;
-    const X ex;
-    const M em;
-    vector<X> dat;
-    vector<M> lazy;
-    LazySegTree(int n_, FX fx_, FA fa_, FM fm_, FP fp_, X ex_, M em_)
-        : n(), fx(fx_), fa(fa_), fm(fm_), fp(fp_), ex(ex_), em(em_), dat(n_ * 4, ex), lazy(n_ * 4, em) {
-        int x = 1;
-        while (n_ > x) x *= 2;
-        n = x;
+template<class S,S (*op)(S,S),S (*e)(),class F,S (*mapping)(F,S),F (*composition)(F,F),F (*id)()>
+struct LazySegTree{
+  private:
+  int _n,size=1,idx=0;
+  vector<S>seq;
+  vector<F>lazy;
+  void update(int k){seq[k]=op(seq[2*k],seq[2*k+1]);}
+  void all_apply(int k,F f){
+    seq[k]=mapping(f,seq[k]);
+    if(k<size)lazy[k]=composition(f,lazy[k]);
+  }
+  void eval(int k){
+    all_apply(2*k,lazy[k]);
+    all_apply(2*k+1,lazy[k]);
+    lazy[k]=id();
+  }
+  public:
+  LazySegTree(int n):LazySegTree(vector<S>(n,e())){}
+  LazySegTree(const vector<S>&v):_n(int(v.size())){
+    while(size<_n)size<<=1,idx++;
+    seq=vector<S>(2*size,e());
+    lazy=vector<F>(2*size,id());
+    for(int i=0;i<_n;i++)seq[size+i]=v[i];
+    for(int i=size-1;i>=1;i--)update(i);
+  }
+  void set(int p,S x){
+    p+=size;
+    for(int i=idx;i>=1;i--)eval(p>>i);
+    seq[p]=x;
+    for(int i=1;i<=idx;i++)update(p>>i);
+  }
+  S operator[](int p){
+    p+=size;
+    for(int i=idx;i>=1;i--)eval(p>>i);
+    return seq[p];
+  }
+  S query(int l,int r){
+    if(l==r)return e();
+    S sml=e(),smr=e();
+    l+=size,r+=size;
+    for(int i=idx;i>=1;i--){
+      if(((l>>i)<<i)!=l)eval(l>>i);
+      if(((r>>i)<<i)!=r)eval(r>>i);
     }
- 
-    void set(int i, X x) { dat[i + n - 1] = x; }
-    void build() {
-        for (int k = n - 2; k >= 0; k--) dat[k] = fx(dat[2 * k + 1], dat[2 * k + 2]);
+    while(l<r){
+      if(l&1)sml=op(sml,seq[l++]);
+      if(r&1)smr=op(seq[--r],smr);
+      l>>=1,r>>=1;
     }
- 
-    /* lazy eval */
-    void eval(int k, int len) {
-        if (lazy[k] == em) return;  // 更新するものが無ければ終了
-        if (k < n - 1) {            // 葉でなければ子に伝搬
-            lazy[k * 2 + 1] = fm(lazy[k * 2 + 1], lazy[k]);
-            lazy[k * 2 + 2] = fm(lazy[k * 2 + 2], lazy[k]);
-        }
-        // 自身を更新
-        dat[k] = fa(dat[k], fp(lazy[k], len));
-        lazy[k] = em;
+    return op(sml,smr);
+  }
+  S all_query()const{return seq[1];}
+  void apply(int p,F f){
+    p+=size;
+    for(int i=idx;i>=1;i--)eval(p>>i);
+    seq[p]=mapping(f,seq[p]);
+    for(int i=1;i<=idx;i++)update(p>>i);
+  }
+  void apply(int l,int r,F f){
+    if(l==r)return ;
+    l+=size;
+    r+=size;
+    for(int i=idx;i>=1;i--){
+      if(((l>>i)<<i)!=l)eval(l>>i);
+      if(((r>>i)<<i)!=r)eval((r-1)>>i);
     }
- 
-    void update(int a, int b, M x, int k, int l, int r) {
-        eval(k, r - l);
-        if (a <= l && r <= b) {  // 完全に内側の時
-            lazy[k] = fm(lazy[k], x);
-            eval(k, r - l);
-        } else if (a < r && l < b) {                     // 一部区間が被る時
-            update(a, b, x, k * 2 + 1, l, (l + r) / 2);  // 左の子
-            update(a, b, x, k * 2 + 2, (l + r) / 2, r);  // 右の子
-            dat[k] = fx(dat[k * 2 + 1], dat[k * 2 + 2]);
-        }
+    int l2=l,r2=r;
+    while(l<r){
+      if(l&1)all_apply(l++,f);
+      if(r&1)all_apply(--r,f);
+      l>>=1;
+      r>>=1;
     }
-    //[a,b)
-    void update(int a, int b, M x) { update(a, b, x, 0, 0, n); }
-    X query_sub(int a, int b, int k, int l, int r) {
-        eval(k, r - l);
-        if (r <= a || b <= l) {  // 完全に外側の時
-            return ex;
-        } else if (a <= l && r <= b) {  // 完全に内側の時
-            return dat[k];
-        } else {  // 一部区間が被る時
-            X vl = query_sub(a, b, k * 2 + 1, l, (l + r) / 2);
-            X vr = query_sub(a, b, k * 2 + 2, (l + r) / 2, r);
-            return fx(vl, vr);
-        }
+    l=l2,r=r2;
+    for(int i=1;i<=idx;i++){
+      if(((l>>i)<<i)!=l)update(l>>i);
+      if(((r>>i)<<i)!=r)update((r-1)>>i);
     }
-    //[a,b)
-    X query(int a, int b) { return query_sub(a, b, 0, 0, n); }
-    X get(int i){
-      return query(i,i+1);
-    }
+  }
 };
 struct UnionFind{
   int n;
@@ -1150,7 +1162,10 @@ namespace NTT {
 // Formal Power Series
 template <typename mint> struct FPS : vector<mint> {
     using vector<mint>::vector;
- 
+ /*
+    template<class...Args>
+    FPS(Args...args) : vector<mint>(args...){}
+  */
     // constructor
     FPS(const vector<mint>& r) : vector<mint>(r) {}
  
@@ -1273,7 +1288,11 @@ template <typename mint> struct FPS : vector<mint> {
 
     // division, r must be normalized (r.back() must not be 0)
     inline FPS& operator /= (const FPS& r) {
-        assert(!r.empty());
+        const int n=(*this).size(),m=r.size();
+        if(n<m){
+            (*this).clear();
+            return *this;
+        }
         assert(r.back() != 0);
         this->normalize();
         if (this->size() < r.size()) {
@@ -1285,7 +1304,8 @@ template <typename mint> struct FPS : vector<mint> {
         return *this;
     }
     inline FPS& operator %= (const FPS &r) {
-        assert(!r.empty());
+        const int n=(*this).size(),m=r.size();
+        if(n<m) return (*this);
         assert(r.back() != 0);
         this->normalize();
         FPS q = (*this) / r;
@@ -1541,73 +1561,8 @@ template<typename mint> FPS<mint> inv_sum(vector<FPS<mint>> f){
   mol[0]*=inv(dem[0]);
   return mol[0];
 }
-template <typename mint> FPS<mint> inv(FPS<mint> A, int n) { // Q-(1/Q-A)/(-Q^{-2})
-	FPS<mint> B{mint(1)/A[0]};
-	while (sz(B) < n) { int x = 2*sz(B);
-		B = RSZ(2*B-RSZ(A,x)*B*B,x); }
-	return RSZ(B,n);
-}
 template <typename mint> FPS<mint> rev(FPS<mint> p) { reverse(p.begin(),p.end()); return p; }
 template <typename mint> FPS<mint> RSZ(FPS<mint> p, int x) { p.resize(x); return p; }
-template <typename mint> pair<FPS<mint>,FPS<mint>> divi(const FPS<mint>& f, const FPS<mint>& g) { 
-	if (sz(f) < sz(g)) return {{},f};
-	FPS<mint> q = NTT::mul(inv(rev(g),sz(f)-sz(g)+1),rev(f));
-	q = rev(RSZ(q,sz(f)-sz(g)+1));
-	auto r = RSZ(f-NTT::mul(q,g),sz(g)-1); return {q,r};
-}
-template <typename mint>
-void segProd(vector<FPS<mint>>& stor, vector<mint>& v, int ind, int l, int r) { // v -> places to evaluate at
-	if (l == r) { stor[ind] = {-v[l],1}; return; }
-	int m = (l+r)/2; segProd(stor,v,2*ind,l,m); segProd(stor,v,2*ind+1,m+1,r);
-	stor[ind] = stor[2*ind]*stor[2*ind+1];
-}
-template <typename mint>
-void evalAll(vector<FPS<mint>>& stor, vector<mint>& res,FPS<mint> v, int ind = 1) {
-	v = divi(v,stor[ind]).second;
-	if (sz(stor[ind]) == 2) { res.push_back(sz(v)?v[0]:mint(0)); return; }
-	evalAll(stor,res,v,2*ind); evalAll(stor,res,v,2*ind+1);
-}
-template <typename mint> vector<mint> multieval(FPS<mint> v, vector<mint> p) {
-	vector<FPS<mint>> stor(4*sz(p)); segProd(stor,p,1,0,sz(p)-1);
-	vector<mint> res; evalAll(stor,res,v); return res; }
-
-template <typename mint> FPS<mint> combAll(vector<FPS<mint>>& stor, FPS<mint>& dems, int ind, int l, int r) {
-	if (l == r) return {dems[l]};
-	int m = (l+r)/2;
-	FPS<mint> a = combAll(stor,dems,2*ind,l,m), b = combAll(stor,dems,2*ind+1,m+1,r);
-	return a*stor[2*ind+1]+b*stor[2*ind];
-}
-template <typename mint> FPS<mint> interpolate(vector<mint> x,vector<mint> y) {
-  int n=sz(x);
-  vector<FPS<mint>> a;
-  for(int i=0;i<n;i++){
-    FPS<mint> b={-x[i],mint(1)};
-    a.push_back(b);
-  }
-  FPS<mint> g=product(a);
-  FPS<mint> g_=diff(g);
-  vector<mint> evaled=multieval(g_,x);
-  vector<FPS<mint>> c(n);
-  for(int i=0;i<n;i++){
-    FPS<mint> d={-x[i],1};
-    c[i]=d*evaled[i];
-  }
-  int siz=1;
-  while(siz<int(c.size())){
-    siz<<=1;
-  }
-  vector<FPS<mint>> mol(siz*2-1),dem(siz*2-1,{1});
-  for(size_t i=0;i<c.size();++i){
-    mol[i+siz-1]={y[i]};
-    dem[i+siz-1]=c[i];
-  }
-  for(int i=siz-2;i>=0;--i){
-    dem[i]=dem[2*i+1]*dem[2*i+2];
-    mol[i]=mol[2*i+1]*dem[2*i+2]+mol[2*i+2]*dem[2*i+1];
-  }
-  mol[0]*=inv(dem[0]);
-  return RSZ(g*mol[0],n);
-}
 template<int m> struct Perm{
   unordered_map<int,tuple<ll,vector<ll>,vector<ll>>> mp;
   int n_;
@@ -2004,15 +1959,376 @@ vector<T> shortest_path_faster_algorithm(const Graph &G, int s) {
   }
   return dist;
 }
-// RAQ+RSQ
-using X = ll; //dat
-using M = ll; //lazy
-auto fx = [](X x1, X x2) -> X { return x1 + x2; }; //dat×dat 行う二項演算
-auto fa = [](X x, M m) -> X { return x + m; }; //datをlazyで更新する演算
-auto fm = [](M m1, M m2) -> M { return m1 + m2; }; //lazyの伝達を行う演算
-auto fp = [](M m, int n) -> M { return m * n; }; //p(m,n)=m＊m＊...＊m　子のdatをlazyで更新した時のdatの作用
-X ex = 0; //x＊ex=x (Xの単位元) dat
-M em = 0; //x＊em=x (Mの単位元) lazy
+template<typename mint>
+struct subproduct_tree{
+  using poly=FPS<mint>;
+  vector<poly> tree;
+  int n,siz;
+  subproduct_tree(const vector<mint> &x){
+    n=1;
+    siz=sz(x);
+    while(n<siz) n*=2;;
+    tree.resize(2*n,{mint(1)});
+    for(int i=0;i<siz;i++) tree[i+n]={-x[i],mint(1)};
+    for(int i=n-1;i>0;i--) tree[i]=tree[2*i]*tree[2*i+1];
+  }
+  vector<mint> multieval(const poly &f){
+    vector<poly> remainder(2*n);
+    remainder[1]=f%tree[1];
+    for(int i=1;i<n;i++){
+      remainder[2*i]=remainder[i]%tree[2*i];
+      remainder[2*i+1]=remainder[i]%tree[2*i+1];
+    }
+    vector<mint> ret(siz);
+    for(int i=0;i<siz;i++){
+        if(remainder[i+n].empty()) ret[i]=0;
+        else ret[i]=remainder[i+n][0];
+    }
+    return ret;
+  }
+  poly interpolate(const vector<mint> &y){
+    poly g=diff(tree[1]);
+    vector<mint> evaled=multieval(g);
+    vector<poly> mol(2*n),dem(2*n,{1});
+    for(int i=0;i<siz;++i){
+      mol[i+n]={y[i]};
+      dem[i+n]=tree[i+n]*evaled[i];
+    }
+    for(int i=n-1;i>0;--i){
+      dem[i]=dem[2*i]*dem[2*i+1];
+      mol[i]=mol[2*i]*dem[2*i+1]+mol[2*i+1]*dem[2*i];
+    }
+    mol[1]*=inv(dem[1]);
+    return RSZ(tree[1]*mol[1],siz);
+  }
+};
+template <typename mint> vector<mint> multieval(const FPS<mint> &f,const vector<mint> &x){
+  subproduct_tree<mint> tree(x);
+  return tree.multieval(f);
+}
+template <typename mint> FPS<mint> interpolate(const vector<mint> &x,const vector<mint> &y){
+  assert(sz(x)==sz(y));
+  if(sz(x)==1) return {y[0]};
+  subproduct_tree<mint> tree(x);
+  return tree.interpolate(y);
+}
+//fast Input by yosupo
+#include <unistd.h>
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cctype>
+#include <cstring>
+#include <sstream>
+#include <string>
+#include <type_traits>
+#include <vector>
+namespace fastio{
+/*
+  quote from yosupo's submission in Library Checker
+*/
+int bsr(unsigned int n) {
+    return 8 * (int)sizeof(unsigned int) - 1 - __builtin_clz(n);
+}
+// @param n `1 <= n`
+// @return maximum non-negative `x` s.t. `(n & (1 << x)) != 0`
+int bsr(unsigned long n) {
+    return 8 * (int)sizeof(unsigned long) - 1 - __builtin_clzl(n);
+}
+// @param n `1 <= n`
+// @return maximum non-negative `x` s.t. `(n & (1 << x)) != 0`
+int bsr(unsigned long long n) {
+    return 8 * (int)sizeof(unsigned long long) - 1 - __builtin_clzll(n);
+}
+// @param n `1 <= n`
+// @return minimum non-negative `x` s.t. `(n & (1 << x)) != 0`
+int bsr(unsigned __int128 n) {
+    unsigned long long low = (unsigned long long)(n);
+    unsigned long long high = (unsigned long long)(n >> 64);
+    return high ? 127 - __builtin_clzll(high) : 63 - __builtin_ctzll(low);
+}
+ 
+namespace internal {
+ 
+template <class T>
+using is_signed_int128 =
+    typename std::conditional<std::is_same<T, __int128_t>::value ||
+                                  std::is_same<T, __int128>::value,
+                              std::true_type,
+                              std::false_type>::type;
+ 
+template <class T>
+using is_unsigned_int128 =
+    typename std::conditional<std::is_same<T, __uint128_t>::value ||
+                                  std::is_same<T, unsigned __int128>::value,
+                              std::true_type,
+                              std::false_type>::type;
+ 
+template <class T>
+using make_unsigned_int128 =
+    typename std::conditional<std::is_same<T, __int128_t>::value,
+                              __uint128_t,
+                              unsigned __int128>;
+ 
+template <class T>
+using is_integral =
+    typename std::conditional<std::is_integral<T>::value ||
+                                  internal::is_signed_int128<T>::value ||
+                                  internal::is_unsigned_int128<T>::value,
+                              std::true_type,
+                              std::false_type>::type;
+ 
+template <class T>
+using is_signed_int = typename std::conditional<(is_integral<T>::value &&
+                                                 std::is_signed<T>::value) ||
+                                                    is_signed_int128<T>::value,
+                                                std::true_type,
+                                                std::false_type>::type;
+ 
+template <class T>
+using is_unsigned_int =
+    typename std::conditional<(is_integral<T>::value &&
+                               std::is_unsigned<T>::value) ||
+                                  is_unsigned_int128<T>::value,
+                              std::true_type,
+                              std::false_type>::type;
+ 
+template <class T>
+using to_unsigned = typename std::conditional<
+    is_signed_int128<T>::value,
+    make_unsigned_int128<T>,
+    typename std::conditional<std::is_signed<T>::value,
+                              std::make_unsigned<T>,
+                              std::common_type<T>>::type>::type;
+ 
+template <class T>
+using is_integral_t = std::enable_if_t<is_integral<T>::value>;
+ 
+template <class T>
+using is_signed_int_t = std::enable_if_t<is_signed_int<T>::value>;
+ 
+template <class T>
+using is_unsigned_int_t = std::enable_if_t<is_unsigned_int<T>::value>;
+ 
+template <class T> using to_unsigned_t = typename to_unsigned<T>::type;
+ 
+}  // namespace internal
+struct Scanner {
+  public:
+    Scanner(const Scanner&) = delete;
+    Scanner& operator=(const Scanner&) = delete;
+ 
+    Scanner(FILE* fp) : fd(fileno(fp)) {}
+ 
+    void read() {}
+    template <class H, class... T> void read(H& h, T&... t) {
+        bool f = read_single(h);
+        assert(f);
+        read(t...);
+    }
+ 
+    int read_unsafe() { return 0; }
+    template <class H, class... T> int read_unsafe(H& h, T&... t) {
+        bool f = read_single(h);
+        if (!f) return 0;
+        return 1 + read_unsafe(t...);
+    }
+ 
+    int close() { return ::close(fd); }
+ 
+  private:
+    static constexpr int SIZE = 1 << 15;
+ 
+    int fd = -1;
+    std::array<char, SIZE + 1> line;
+    int st = 0, ed = 0;
+    bool eof = false;
+ 
+    bool read_single(std::string& ref) {
+        if (!skip_space()) return false;
+        ref = "";
+        while (true) {
+            char c = top();
+            if (c <= ' ') break;
+            ref += c;
+            st++;
+        }
+        return true;
+    }
+    bool read_single(double& ref) {
+        std::string s;
+        if (!read_single(s)) return false;
+        ref = std::stod(s);
+        return true;
+    }
+ 
+    template <class T,
+              std::enable_if_t<std::is_same<T, char>::value>* = nullptr>
+    bool read_single(T& ref) {
+        if (!skip_space<50>()) return false;
+        ref = top();
+        st++;
+        return true;
+    }
+ 
+    template <class T,
+              internal::is_signed_int_t<T>* = nullptr,
+              std::enable_if_t<!std::is_same<T, char>::value>* = nullptr>
+    bool read_single(T& sref) {
+        using U = internal::to_unsigned_t<T>;
+        if (!skip_space<50>()) return false;
+        bool neg = false;
+        if (line[st] == '-') {
+            neg = true;
+            st++;
+        }
+        U ref = 0;
+        do {
+            ref = 10 * ref + (line[st++] & 0x0f);
+        } while (line[st] >= '0');
+        sref = neg ? -ref : ref;
+        return true;
+    }
+    template <class U,
+              internal::is_unsigned_int_t<U>* = nullptr,
+              std::enable_if_t<!std::is_same<U, char>::value>* = nullptr>
+    bool read_single(U& ref) {
+        if (!skip_space<50>()) return false;
+        ref = 0;
+        do {
+            ref = 10 * ref + (line[st++] & 0x0f);
+        } while (line[st] >= '0');
+        return true;
+    }
+ 
+    bool reread() {
+        if (ed - st >= 50) return true;
+        if (st > SIZE / 2) {
+            std::memmove(line.data(), line.data() + st, ed - st);
+            ed -= st;
+            st = 0;
+        }
+        if (eof) return false;
+        auto u = ::read(fd, line.data() + ed, SIZE - ed);
+        if (u == 0) {
+            eof = true;
+            line[ed] = '\0';
+            u = 1;
+        }
+        ed += int(u);
+        line[ed] = char(127);
+        return true;
+    }
+ 
+    char top() {
+        if (st == ed) {
+            bool f = reread();
+            assert(f);
+        }
+        return line[st];
+    }
+ 
+    template <int TOKEN_LEN = 0>
+    bool skip_space() {
+        while (true) {
+            while (line[st] <= ' ') st++;   
+            if (ed - st > TOKEN_LEN) return true;
+            if (st > ed) st = ed;
+            for (auto i = st; i < ed; i++) {
+                if (line[i] <= ' ') return true;
+            }
+            if (!reread()) return false;
+        }
+    }
+};
+
+//fast Output by ei1333
+/**
+ * @brief Printer(高速出力)
+ */
+struct Printer {
+public:
+  explicit Printer(FILE *fp) : fp(fp) {}
+
+  ~Printer() { flush(); }
+
+  template< bool f = false, typename T, typename... E >
+  void write(const T &t, const E &... e) {
+    if(f) write_single(' ');
+    write_single(t);
+    write< true >(e...);
+  }
+
+  template< typename... T >
+  void writeln(const T &...t) {
+    write(t...);
+    write_single('\n');
+  }
+
+  void flush() {
+    fwrite(line, 1, st - line, fp);
+    st = line;
+  }
+
+private:
+  FILE *fp = nullptr;
+  static constexpr size_t line_size = 1 << 16;
+  static constexpr size_t int_digits = 20;
+  char line[line_size + 1] = {};
+  char small[32] = {};
+  char *st = line;
+
+  template< bool f = false >
+  void write() {}
+
+  void write_single(const char &t) {
+    if(st + 1 >= line + line_size) flush();
+    *st++ = t;
+  }
+
+  template< typename T, enable_if_t< is_integral< T >::value, int > = 0 >
+  void write_single(T s) {
+    if(st + int_digits >= line + line_size) flush();
+    if(s == 0) {
+      write_single('0');
+      return;
+    }
+    if(s < 0) {
+      write_single('-');
+      s = -s;
+    }
+    char *mp = small + sizeof(small);
+    typename make_unsigned< T >::type y = s;
+    size_t len = 0;
+    while(y > 0) {
+      *--mp = y % 10 + '0';
+      y /= 10;
+      ++len;
+    }
+    memmove(st, mp, len);
+    st += len;
+  }
+
+  void write_single(const string &s) {
+    for(auto &c : s) write_single(c);
+  }
+
+  void write_single(const char *s) {
+    while(*s != 0) write_single(*s++);
+  }
+
+  template< typename T >
+  void write_single(const vector< T > &s) {
+    for(size_t i = 0; i < s.size(); i++) {
+      if(i) write_single(' ');
+      write_single(s[i]);
+    }
+  }
+};
+
+}; //namespace fastio
 using mint=Fp<998244353>;
 int main(){
+    fastio::Scanner sc(stdin);
+    fastio::Printer pr(stdout);
 }

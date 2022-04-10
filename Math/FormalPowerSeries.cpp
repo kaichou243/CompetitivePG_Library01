@@ -109,76 +109,6 @@ ll modinv(ll a, ll mod) {
     if (u < 0) u += mod;
     return u;
 }
-namespace FFT {
-  using Real = long double;
-  struct Comp{
-    Real re, im;
-    Comp(){};
-    Comp(Real re, Real im) : re(re), im(im) {}
-    Real slen() const { return re*re+im*im; }
-    Real real() { return re; }
-    inline Comp operator+(const Comp &c) { return Comp(re+c.re, im+c.im); }
-    inline Comp operator-(const Comp &c) { return Comp(re-c.re, im-c.im); }
-    inline Comp operator*(const Comp &c) { return Comp(re*c.re-im*c.im, re*c.im+im*c.re); }
-    inline Comp operator/(const Real &c) { return Comp(re/c, im/c); } 
-    inline Comp conj() const { return Comp(re, -im); }
-  };
-  void fft(vector<Comp>& a, bool inverse){
-    int n = a.size();
-    static bool prepared = false;
-    static vector<Comp> z(30);
-    if(!prepared){
-      prepared = true;
-      for(int i=0; i<30; i++){
-        Real ang = 2*PI/(1 << (i+1));
-        z[i] = Comp(cos(ang), sin(ang));
-      }
-    }
-    for (size_t i = 0, j = 1; j < n; ++j) {
-      for (size_t k = n >> 1; k > (i ^= k); k >>= 1);
-      if (i > j) swap(a[i], a[j]);
-    }
-    for (int i = 0, t = 1; t < n; ++i, t <<= 1) {
-      Comp bw = z[i];
-      if(inverse) bw = bw.conj();
-      for (int i = 0; i < n; i += t * 2) {
-        Comp w(1,0);
-        for (int j = 0; j < t; ++j) {
-          int l = i + j, r = i + j + t;
-          Comp c = a[l], d = a[r] * w;
-          a[l] = c + d;
-          a[r] = c - d;
-          w = w * bw;
-        }
-      }
-    }
-    if(inverse)
-      for(int i=0; i<n; i++) a[i] = a[i]/(Real)n;
-  }
-  template<typename T>
-  vector<T> mul(vector<T> &a, vector<T> &b, bool issquare){
-    int deg = a.size() + b.size();
-    int n = 1;
-    while(n < deg) n <<= 1;
-    vector<Comp> fa,fb;
-    fa.resize(n); fb.resize(n);
-    for(int i=0;i<n;i++){
-      if(i < a.size()) fa[i] = Comp(a[i], 0);
-      else fa[i] = Comp(0,0);
-      if(i < b.size()) fb[i] = Comp(b[i], 0);
-      else fb[i] = Comp(0,0);
-    }
-    for(int i=0;i<b.size();i++) fb[i] = Comp(b[i], 0);
-    fft(fa, false); 
-    if(issquare) fb = fa;
-    else fft(fb, false);
-    for(int i=0;i<n;i++) fa[i] = fa[i] * fb[i];
-    fft(fa, true);
-    vector<T> res(n);
-    for(int i=0;i<n;i++) res[i] = round(fa[i].re);
-    return res;
-  }
-};
 namespace NTT {
     int calc_primitive_root(int mod) {
         if (mod == 2) return 1;
@@ -237,7 +167,7 @@ namespace NTT {
       std::array<mint, rank2 + 1> iroot;  // root[i] * iroot[i] == 1
       std::array<mint, std::max(0, rank2 - 2 + 1)> rate2;
       std::array<mint, std::max(0, rank2 - 2 + 1)> irate2;
-
+ 
       std::array<mint, std::max(0, rank2 - 3 + 1)> rate3;
       std::array<mint, std::max(0, rank2 - 3 + 1)> irate3;
       int g;
@@ -250,7 +180,7 @@ namespace NTT {
             root[i] = root[i + 1] * root[i + 1];
             iroot[i] = iroot[i + 1] * iroot[i + 1];
         }
-
+ 
         {
             mint prod = 1, iprod = 1;
             for (int i = 0; i <= rank2 - 2; i++) {
@@ -283,7 +213,7 @@ namespace NTT {
       int h = ceil_pow2(n);
       int MOD=a[0].getmod();
       static const fft_info<mint> info;
-
+ 
       int len = 0;  // a[i, i+(n>>len), i+2*(n>>len), ..] is transformed
       while (len < h) {
         if (h - len == 1) {
@@ -334,7 +264,7 @@ namespace NTT {
     void trans_inv(std::vector<mint>& a) {
       int n = int(a.size());
       int h = ceil_pow2(n);
-
+ 
       static const fft_info<mint> info;
       int MOD=a[0].getmod();
       int len = h;  // a[i, i+(n>>len), i+2*(n>>len), ..] is transformed
@@ -370,11 +300,11 @@ namespace NTT {
                     auto a1 = 1ULL * a[i + offset + 1 * p].val;
                     auto a2 = 1ULL * a[i + offset + 2 * p].val;
                     auto a3 = 1ULL * a[i + offset + 3 * p].val;
-
+ 
                     auto a2na3iimag =
                         1ULL *
                         mint((MOD + a2 - a3) * iimag.val).val;
-
+ 
                     a[i + offset] = a0 + a1 + a2 + a3;
                     a[i + offset + 1 * p] =
                         (a0 + (MOD - a1) + a2na3iimag) * irot.val;
@@ -467,44 +397,14 @@ namespace NTT {
         }
         return res;
     }
- 
-    // long long
-  /*
-    vector<long long> mul_ll(const vector<long long> &A, const vector<long long> &B) {
-        if (A.empty() || B.empty()) return {};
-        int N = (int)A.size(), M = (int)B.size();
-        if (min(N, M) < 30) return naive_mul(A, B);
-        int size_fft = get_fft_size(N, M);
-        vector<mint0> a0(size_fft, 0), b0(size_fft, 0), c0(size_fft, 0);
-        vector<mint1> a1(size_fft, 0), b1(size_fft, 0), c1(size_fft, 0);
-        vector<mint2> a2(size_fft, 0), b2(size_fft, 0), c2(size_fft, 0);
-        for (int i = 0; i < N; ++i)
-            a0[i] = A[i], a1[i] = A[i], a2[i] = A[i];
-        for (int i = 0; i < M; ++i)
-            b0[i] = B[i], b1[i] = B[i], b2[i] = B[i];
-        trans(a0), trans(a1), trans(a2), trans(b0), trans(b1), trans(b2);
-        for (int i = 0; i < size_fft; ++i) {
-            c0[i] = a0[i] * b0[i];
-            c1[i] = a1[i] * b1[i];
-            c2[i] = a2[i] * b2[i];
-        }
-        trans_inv(c0), trans_inv(c1), trans_inv(c2);
-        static const long long mod0 = MOD0, mod01 = mod0 * MOD1;
-        vector<long long> res(N + M - 1);
-        for (int i = 0; i < N + M - 1; ++i) {
-            int y0 = c0[i].val;
-            int y1 = (imod0 * (c1[i] - y0)).val;
-            int y2 = (imod01 * (c2[i] - y0) - imod1 * y1).val;
-            res[i] = mod01 * y2 + mod0 * y1 + y0;
-        }
-        return res;
-    }
-    */
 };
 // Formal Power Series
 template <typename mint> struct FPS : vector<mint> {
     using vector<mint>::vector;
- 
+ /*
+    template<class...Args>
+    FPS(Args...args) : vector<mint>(args...){}
+  */
     // constructor
     FPS(const vector<mint>& r) : vector<mint>(r) {}
  
@@ -627,7 +527,11 @@ template <typename mint> struct FPS : vector<mint> {
 
     // division, r must be normalized (r.back() must not be 0)
     inline FPS& operator /= (const FPS& r) {
-        assert(!r.empty());
+        const int n=(*this).size(),m=r.size();
+        if(n<m){
+            (*this).clear();
+            return *this;
+        }
         assert(r.back() != 0);
         this->normalize();
         if (this->size() < r.size()) {
@@ -639,7 +543,8 @@ template <typename mint> struct FPS : vector<mint> {
         return *this;
     }
     inline FPS& operator %= (const FPS &r) {
-        assert(!r.empty());
+        const int n=(*this).size(),m=r.size();
+        if(n<m) return (*this);
         assert(r.back() != 0);
         this->normalize();
         FPS q = (*this) / r;
@@ -651,8 +556,7 @@ template <typename mint> struct FPS : vector<mint> {
     // log(f) = \int f'/f dx, f[0] must be 1
     inline friend FPS log(const FPS& f, int deg) {
         assert(f[0] == 1);
-        FPS res = integral(diff(f) * inv(f, deg));
-        res.resize(deg);
+        FPS res = integral((diff(f) * inv(f, deg)).pre(deg-1));
         return res;
     }
     inline friend FPS log(const FPS& f) {
@@ -721,104 +625,6 @@ template <typename mint> struct FPS : vector<mint> {
       return p;
     }
 };
-template <typename mint> FPS<mint> product(vector<FPS<mint>> a){
-  int siz=1;
-  while(siz<int(a.size())){
-    siz<<=1;
-  }
-  vector<FPS<mint>> res(siz*2-1,{1});
-  for(int i=0;i<int(a.size());++i){
-    res[i+siz-1]=a[i];
-  }
-  for(int i=siz-2;i>=0;--i){
-    res[i]=res[2*i+1]*res[2*i+2];
-  }
-  return res[0];
-}
-template<typename mint> FPS<mint> inv_sum(vector<FPS<mint>> f){
-  int siz=1;
-  while(siz<int(f.size())){
-    siz<<=1;
-  }
-  vector<FPS<mint>> mol(siz*2-1),dem(siz*2-1,{1});
-  for(size_t i=0;i<f.size();++i){
-    mol[i+siz-1]={1};
-    dem[i+siz-1]=f[i];
-  }
-  for(int i=siz-2;i>=0;--i){
-    dem[i]=dem[2*i+1]*dem[2*i+2];
-    mol[i]=mol[2*i+1]*dem[2*i+2]+mol[2*i+2]*dem[2*i+1];
-  }
-  mol[0]*=inv(dem[0]);
-  return mol[0];
-}
-template <typename mint> FPS<mint> inv(FPS<mint> A, int n) { // Q-(1/Q-A)/(-Q^{-2})
-	FPS<mint> B{mint(1)/A[0]};
-	while (sz(B) < n) { int x = 2*sz(B);
-		B = RSZ(2*B-RSZ(A,x)*B*B,x); }
-	return RSZ(B,n);
-}
-template <typename mint> FPS<mint> rev(FPS<mint> p) { reverse(p.begin(),p.end()); return p; }
-template <typename mint> FPS<mint> RSZ(FPS<mint> p, int x) { p.resize(x); return p; }
-template <typename mint> pair<FPS<mint>,FPS<mint>> divi(const FPS<mint>& f, const FPS<mint>& g) { 
-	if (sz(f) < sz(g)) return {{},f};
-	FPS<mint> q = NTT::mul(inv(rev(g),sz(f)-sz(g)+1),rev(f));
-	q = rev(RSZ(q,sz(f)-sz(g)+1));
-	auto r = RSZ(f-NTT::mul(q,g),sz(g)-1); return {q,r};
-}
-template <typename mint>
-void segProd(vector<FPS<mint>>& stor, vector<mint>& v, int ind, int l, int r) { // v -> places to evaluate at
-	if (l == r) { stor[ind] = {-v[l],1}; return; }
-	int m = (l+r)/2; segProd(stor,v,2*ind,l,m); segProd(stor,v,2*ind+1,m+1,r);
-	stor[ind] = stor[2*ind]*stor[2*ind+1];
-}
-template <typename mint>
-void evalAll(vector<FPS<mint>>& stor, vector<mint>& res,FPS<mint> v, int ind = 1) {
-	v = divi(v,stor[ind]).second;
-	if (sz(stor[ind]) == 2) { res.push_back(sz(v)?v[0]:mint(0)); return; }
-	evalAll(stor,res,v,2*ind); evalAll(stor,res,v,2*ind+1);
-}
-template <typename mint> vector<mint> multieval(FPS<mint> v, vector<mint> p) {
-	vector<FPS<mint>> stor(4*sz(p)); segProd(stor,p,1,0,sz(p)-1);
-	vector<mint> res; evalAll(stor,res,v); return res; }
-
-template <typename mint> FPS<mint> combAll(vector<FPS<mint>>& stor, FPS<mint>& dems, int ind, int l, int r) {
-	if (l == r) return {dems[l]};
-	int m = (l+r)/2;
-	FPS<mint> a = combAll(stor,dems,2*ind,l,m), b = combAll(stor,dems,2*ind+1,m+1,r);
-	return a*stor[2*ind+1]+b*stor[2*ind];
-}
-template <typename mint> FPS<mint> interpolate(vector<mint> x,vector<mint> y) {
-  int n=sz(x);
-  vector<FPS<mint>> a;
-  for(int i=0;i<n;i++){
-    FPS<mint> b={-x[i],mint(1)};
-    a.push_back(b);
-  }
-  FPS<mint> g=product(a);
-  FPS<mint> g_=diff(g);
-  vector<mint> evaled=multieval(g_,x);
-  vector<FPS<mint>> c(n);
-  for(int i=0;i<n;i++){
-    FPS<mint> d={-x[i],1};
-    c[i]=d*evaled[i];
-  }
-  int siz=1;
-  while(siz<int(c.size())){
-    siz<<=1;
-  }
-  vector<FPS<mint>> mol(siz*2-1),dem(siz*2-1,{1});
-  for(size_t i=0;i<c.size();++i){
-    mol[i+siz-1]={y[i]};
-    dem[i+siz-1]=c[i];
-  }
-  for(int i=siz-2;i>=0;--i){
-    dem[i]=dem[2*i+1]*dem[2*i+2];
-    mol[i]=mol[2*i+1]*dem[2*i+2]+mol[2*i+2]*dem[2*i+1];
-  }
-  mol[0]*=inv(dem[0]);
-  return RSZ(g*mol[0],n);
-}
 using mint=Fp<998244353>;
 int main(){
 }

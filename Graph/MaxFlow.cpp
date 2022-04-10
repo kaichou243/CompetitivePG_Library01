@@ -1,13 +1,5 @@
-//ABC010-D
-/*
-  Dinic's Algorithm
-  Capacity Scaling
-*/
-#define PROBLEM "https://atcoder.jp/contests/abc010/tasks/abc010_4"
 #include<bits/stdc++.h>
-using namespace std;
-using FLOW=int;
-const FLOW INF = 1000000000;
+using ll=long long;
 template< typename flow_t >
 struct MFGraph{
   static_assert(is_integral< flow_t >::value, "template parameter flow_t must be integral type");
@@ -23,8 +15,9 @@ struct MFGraph{
   vector< vector< edge > > graph;
   vector< int > min_cost, iter;
   flow_t max_cap;
+  int SZ;
 
-  explicit MFGraph(int V) : INF(numeric_limits< flow_t >::max()), graph(V), max_cap(0) {}
+  explicit MFGraph(int V) : INF(numeric_limits< flow_t >::max()), graph(V), max_cap(0), SZ(V) {}
 
   void add_edge(int from, int to, flow_t cap, int idx = -1) {
     max_cap = max(max_cap, cap);
@@ -81,6 +74,25 @@ struct MFGraph{
     return flow;
   }
 
+  //after max_flow(s,t)
+  vector<bool> min_cut(int s) {
+        vector<bool> visited(SZ);
+        queue<int> que;
+        que.push(s);
+        while (!que.empty()) {
+            int p = que.front();
+            que.pop();
+            visited[p] = true;
+            for (auto e : graph[p]) {
+                if (e.cap && !visited[e.to]) {
+                    visited[e.to] = true;
+                    que.push(e.to);
+                }
+            }
+        }
+        return visited;
+    }
+  
   void output() {
     for(int i = 0; i < graph.size(); i++) {
       for(auto &e : graph[i]) {
@@ -91,21 +103,5 @@ struct MFGraph{
     }
   }
 };
-int main() {
-  int N,girl,E;
-  cin>>N>>girl>>E;
-  MFGraph G(N+1);
-  int t=N;
-  for(int i=0;i<girl;i++){
-    int p;
-    cin>>p;
-    G.add_edge(p,t,1);
-  }
-  for(int i=0;i<E;i++){
-    int a,b;
-    cin>>a>>b;
-    G.addedge(a,b,1);
-    G.addedge(b,a,1);
-  }
-  cout<<G.max_flow(0,t)<<endl;
+int main(){  
 }

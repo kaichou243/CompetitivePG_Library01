@@ -24,3 +24,5 @@
 -MinCostFlow (Primal-Dual Algorithm)
 
 -Modint
+
+-SuccinctIndexableDictionary and Wavelet Matrix

@@ -660,6 +660,59 @@ template<typename mint> FPS<mint> inv_sum(vector<FPS<mint>> f){
   mol[0]*=inv(dem[0]);
   return mol[0];
 }
+template<typename mint>
+struct subproduct_tree{
+  using poly=FPS<mint>;
+  vector<poly> tree;
+  int n,siz;
+  subproduct_tree(const vector<mint> &x){
+    n=1;
+    siz=sz(x);
+    while(n<siz) n*=2;;
+    tree.resize(2*n,{mint(1)});
+    for(int i=0;i<siz;i++) tree[i+n]={-x[i],mint(1)};
+    for(int i=n-1;i>0;i--) tree[i]=tree[2*i]*tree[2*i+1];
+  }
+  vector<mint> multieval(const poly &f){
+    vector<poly> remainder(2*n);
+    remainder[1]=f%tree[1];
+    for(int i=1;i<n;i++){
+      remainder[2*i]=remainder[i]%tree[2*i];
+      remainder[2*i+1]=remainder[i]%tree[2*i+1];
+    }
+    vector<mint> ret(siz);
+    for(int i=0;i<siz;i++){
+        if(remainder[i+n].empty()) ret[i]=0;
+        else ret[i]=remainder[i+n][0];
+    }
+    return ret;
+  }
+  poly interpolate(const vector<mint> &y){
+    poly g=diff(tree[1]);
+    vector<mint> evaled=multieval(g);
+    vector<poly> mol(2*n),dem(2*n,{1});
+    for(int i=0;i<siz;++i){
+      mol[i+n]={y[i]};
+      dem[i+n]=tree[i+n]*evaled[i];
+    }
+    for(int i=n-1;i>0;--i){
+      dem[i]=dem[2*i]*dem[2*i+1];
+      mol[i]=mol[2*i]*dem[2*i+1]+mol[2*i+1]*dem[2*i];
+    }
+    mol[1]*=inv(dem[1]);
+    return RSZ(tree[1]*mol[1],siz);
+  }
+};
+template <typename mint> vector<mint> multieval(const FPS<mint> &f,const vector<mint> &x){
+  subproduct_tree<mint> tree(x);
+  return tree.multieval(f);
+}
+template <typename mint> FPS<mint> interpolate(const vector<mint> &x,const vector<mint> &y){
+  assert(sz(x)==sz(y));
+  if(sz(x)==1) return {y[0]};
+  subproduct_tree<mint> tree(x);
+  return tree.interpolate(y);
+}
 using mint=Fp<998244353>;
 int main(){
 }

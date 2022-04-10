@@ -1317,8 +1317,7 @@ template <typename mint> struct FPS : vector<mint> {
     // log(f) = \int f'/f dx, f[0] must be 1
     inline friend FPS log(const FPS& f, int deg) {
         assert(f[0] == 1);
-        FPS res = integral(diff(f) * inv(f, deg));
-        res.resize(deg);
+        FPS res = integral((diff(f) * inv(f, deg)).pre(deg-1));
         return res;
     }
     inline friend FPS log(const FPS& f) {

@@ -8,7 +8,6 @@
 #define all(v) (v).begin(), (v).end()
 using namespace std;
 using ll=long long;
-using FLOW=int;
 using P = pair<ll,ll>;
 const long double PI=acos(-1);
 const ll INF=1e18;
@@ -70,11 +69,13 @@ template<int MOD> struct Fp{
     return os << x.val;
   }
   friend constexpr Fp<MOD> modpow(const Fp<MOD>& a, long long n) noexcept {
-    if (n == 0) return 1;
-    auto t = modpow(a, n / 2);
-    t = t * t;
-    if (n & 1) t = t * a;
-    return t;
+    Fp<MOD> res=1,r=a;
+    while(n){
+      if(n&1) res*=r;
+      r*=r;
+      n>>=1;
+    }
+    return res;
   }
   friend constexpr Fp<MOD> modinv(const Fp<MOD>& r) noexcept {
         long long a = r.val, b = MOD, u = 1, v = 0;
@@ -84,6 +85,9 @@ template<int MOD> struct Fp{
             u -= t * v, swap(u, v);
         }
         return Fp<MOD>(u);
+  }
+  explicit operator bool()const{
+		return val;
   }
 };
 ll modpow(ll a,ll n,ll mod){

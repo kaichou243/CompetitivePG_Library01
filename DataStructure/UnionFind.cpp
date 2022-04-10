@@ -3,39 +3,43 @@ using namespace std;
 using ll=long long;
 using P=pair<ll,ll>;
 struct UnionFind{
+  int n;
   vector<int> data;
-  UnionFind(int N) : data(N,-1){}
-  inline int root(int x){
+  vector<int> edge_num;
+  UnionFind(int N) : n(N) , data(N,-1) , edge_num(N,0){}
+  int root(int x){ // データxが属する木の根を再帰で得る：root(x) = {xの木の根}
     return data[x]<0?x:data[x]=root(data[x]);
   }
-  inline int unite(int x, int y) {
-    if ((x=root(x))==(y=root(y))) return false;
-    if (data[x]>data[y]) swap(x, y);
-    data[x]+=data[y];
-    data[y]=x;
-    return true;
+  void unite(int x, int y) {
+    x=root(x);
+    y=root(y);
+    if(x!=y){
+      if (data[x]>data[y]) swap(x, y);
+      data[x]+=data[y];
+      data[y]=x;
+    }
+    if(x!=y){
+      edge_num[x]+=edge_num[y];
+      edge_num[y]=0;
+    }
+    edge_num[x]+=1;
   }
-  inline bool same(int x, int y){
+  bool same(int x, int y){ // 2つのデータx, yが属する木が同じならtrueを返す
     return root(x)==root(y);
   }
-  inline int size(int x){
+  int size(int x){
     return -data[root(x)];
   }
-};
-//example
-//G=(N,M) 無向グラフ
-//0<=a_i,b_i,S,T<N
-int main(){
-  int N,M,S,T;
-  cin>>N>>M>>S>>T;
-  UnionFind uf(N);
-  for(int i=0;i<N;i++){
-    int a,b;
-    cin>>a>>b;
-    uf.unite(a,b);
+  int edge(int x){
+    return edge_num[root(x)];
   }
-  //頂点Sと頂点Tの連結判定 (連結:1,not 連結:0)
-  cout<<same(S,T)<<endl;
-  //頂点Sの連結成分の大きさ
-  cout<<size(S)<<endl;
+  vector<int> get_roots(){
+    vector<int> res;
+    for(int i=0;i<n;i++){
+      if(data[i]<0) res.push_back(i);
+    }
+    return res;
+  }
+};
+int main(){
 }

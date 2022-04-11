@@ -121,7 +121,7 @@ struct SCCgraph{
   // constructor
   SCCgraph(int N) : G(N), rG(N) {}
   // add edge
-  void addedge(int u, int v) {
+  void add_edge(int u, int v) {
     G[u].push_back(v);
     rG[v].push_back(u);
   }

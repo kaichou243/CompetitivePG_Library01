@@ -17,7 +17,7 @@
 
 -UnionFind
 
--BinomialCoefficient (Any mod)
+-BinomialCoefficient and Permutation (arbitrary mod) (+ Chinese Rem,modpow,modinv,etc...)
 
 -MaxFlow (Dinic's Algorithm)
 
@@ -26,3 +26,15 @@
 -Modint
 
 -SuccinctIndexableDictionary and Wavelet Matrix
+
+-HeavyLightDecomposition
+
+-enum_divisors
+
+-Prime Factorize with Sieve
+
+-Dijkstra's algorithm
+
+-warshall floyd's algorithm
+
+-compress

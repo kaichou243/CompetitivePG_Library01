@@ -131,5 +131,74 @@ template<int m> struct Comb{
     return res.first;
   }
 };
+template<int m> struct Perm{
+  unordered_map<int,tuple<ll,vector<ll>,vector<ll>>> mp;
+  int n_;
+  ll p_, pm_;
+  vector<ll> ord_, fact_;
+  vector<P> pf;
+  Perm(int n) : n_(n), ord_(n), fact_(n) { 
+    pf=prime_factorize(m); 
+    PERMinit();
+  }
+  void init(int n) {
+    ord_.resize(n);
+    fact_.resize(n);
+  }
+  void init(long long p, long long pm) {
+    p_=p,pm_=pm;
+    ord_[0]=ord_[1]=0;
+    fact_[0]=fact_[1]=1;
+    auto&[pms,ord,fac]=mp[p];
+    pms=pm;
+    ord.resize(n_);
+    fac.resize(n_);
+    ord[0]=ord[1]=0;
+    fac[0]=fac[1]=1;
+    for (int i=2;i<n_;i++) {
+      long long add=0;
+      long long ni=i;
+      while (ni % p == 0) add++,ni/=p;
+      ord_[i]=ord_[i-1]+add;
+      fact_[i]=fact_[ni-1]*ni%pm;
+      ord[i]=ord_[i];
+      fac[i]=fact_[i];
+    }
+  }
+  void init(long long p, long long pm, int n) {
+    init(n);
+    init(p, pm);
+  }
+  void PERMinit(){
+    for(auto p : pf){
+      ll ps=p.first,pfs=pow(p.first,p.second);
+      init(n_);
+      init(ps,pfs);
+    }
+  }
+  ll perm(ll n, ll r,int p) {
+    if (n<0 || r<0 || n<r) return 0;
+    auto&[pms,ord,fac]=mp[p];
+    ll e=ord[n]-ord[n-r];
+    ll res=fac[n]*modinv(fac[n-r]%pms,pms)%pms;
+    res=res*modpow(p,e,pms)%pms;
+    return res;
+  }
+  ll operator()(int n, int k){
+    if(n<0 || k<0 || n<k) return 0;
+    vector<long long> vb, vm;
+    for (auto ps : pf) {
+        long long p = ps.first, e = ps.second;
+        long long pm = pow(p,e);
+        long long b = 1;
+        b *= perm(n, k ,p) % pm;
+        b %= pm;
+        vm.push_back(pm);
+        vb.push_back(b);
+    }
+    auto res = ChineseRem(vb,vm);
+    return res.first;
+  }
+};
 int main(){
 }

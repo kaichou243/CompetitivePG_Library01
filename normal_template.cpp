@@ -407,6 +407,6 @@ private:
 }; //namespace fastio
 using mint=Fp<998244353>;
 int main(){
-  fastio::Scanner sc(stdio);
-  fastio::Printer pr(stdout);
+    fastio::Scanner sc(stdin);
+    fastio::Printer pr(stdout);
 }

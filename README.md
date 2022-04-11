@@ -38,3 +38,9 @@
 -warshall floyd's algorithm
 
 -compress
+
+-topo-sort
+
+-shortest path faster algorithm
+
+-Fenwick Tree

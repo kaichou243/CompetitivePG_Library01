@@ -660,6 +660,8 @@ template<typename mint> FPS<mint> inv_sum(vector<FPS<mint>> f){
   mol[0]*=inv(dem[0]);
   return mol[0];
 }
+template <typename mint> FPS<mint> rev(FPS<mint> p) { reverse(p.begin(),p.end()); return p; }
+template <typename mint> FPS<mint> RSZ(FPS<mint> p, int x) { p.resize(x); return p; }
 template<typename mint>
 struct subproduct_tree{
   using poly=FPS<mint>;

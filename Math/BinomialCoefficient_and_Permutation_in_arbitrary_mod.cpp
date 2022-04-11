@@ -6,14 +6,17 @@ using P=pair<ll,ll>;
 ll mod(ll a, ll mod) {
     return (a%mod+mod)%mod;
 }
-ll modpow(ll a, ll n, ll mod) {
-    ll res = 1;
-    while (n > 0) {
-        if (n & 1) res = res * a % mod;
-        a = a * a % mod;
-        n >>= 1;
-    }
-    return res;
+ll modpow(ll a,ll n,ll mod){
+  ll res=1;
+  a%=mod;
+  while (n>0){
+    if (n & 1) res*=a;
+    a *= a;
+    a%=mod;
+    n >>= 1;
+    res%=mod;
+  }
+  return res;
 }
 vector<P> prime_factorize(ll N) {
   vector<P> res;
@@ -64,13 +67,9 @@ template<int m> struct Comb{
   ll p_, pm_;
   vector<ll> ord_, fact_;
   vector<P> pf;
-  Comb(int n) : n_(n), ord_(n), fact_(n) { 
-    pf=prime_factorize(m); 
+  Comb(int n) : n_(n), ord_(n), fact_(n){ 
+    pf=prime_factorize(m);
     COMinit();
-  }
-  Comb(ll p, ll pm, int n) :
-    n_(n), p_(p), pm_(pm), ord_(n), fact_(n) {
-    init(p, pm);
   }
   void init(int n) {
     ord_.resize(n);
@@ -117,22 +116,20 @@ template<int m> struct Comb{
   }
   ll operator()(int n, int k){
     if(n<0 || k<0 || n<k) return 0;
-    vector<long long> vb, vm;
-    for (auto ps : pf) {
-        long long p = ps.first, e = ps.second;
+    int sz=pf.size();
+    vector<long long> vb(sz), vm(sz);
+    for (int i=0;i<sz;i++) {
+        long long p = pf[i].first, e = pf[i].second;
         long long pm = pow(p,e);
         long long b = 1;
         b *= com(n, k ,p) % pm;
         b %= pm;
-        vm.push_back(pm);
-        vb.push_back(b);
+        vm[i]=pm;
+        vb[i]=b;
     }
     auto res = ChineseRem(vb,vm);
     return res.first;
   }
 };
-//example
 int main(){
-  Comb<998244353> C(200000);
-  cout<<C(5,2)<<endl;
 }

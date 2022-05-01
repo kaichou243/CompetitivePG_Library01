@@ -12,14 +12,12 @@ template <typename mint> struct PartitionNumber{
         f=exp(f);
     }
     PartitionNumber(int maxN) : f(maxN+1){
-        vector<mint> invs(maxN+1);
-        for(int i=1;i<=maxN;i++) invs[i]=modinv(mint(i));
-        for(int i=1;i<=maxN;i++){
-            for(int j=1;j<=maxN/i;j++){
-                f[i*j]+=invs[j];
-            }
+        f[0]=mint(1);
+        for(int k=1;k<=maxN;k++){
+            if(1ll*k*(3*k+1)/2<=maxN) f[k*(3*k+1)/2]+=(k % 2 ? mint(-1) : mint(1));
+            if(1ll*k*(3*k-1)/2<=maxN) f[k*(3*k-1)/2]+=(k % 2 ? mint(-1) : mint(1));
         }
-        f=exp(f);
+        f=inv(f);
     }
     mint operator()(int n){
         return f[n];

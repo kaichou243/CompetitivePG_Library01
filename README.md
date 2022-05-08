@@ -44,3 +44,9 @@
 -shortest path faster algorithm
 
 -Fenwick Tree
+
+-Partition Number
+
+-Combination (large prime mod)
+ 
+-Lagrange Polynomial

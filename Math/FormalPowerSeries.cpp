@@ -715,6 +715,23 @@ template <typename mint> FPS<mint> interpolate(const vector<mint> &x,const vecto
   subproduct_tree<mint> tree(x);
   return tree.interpolate(y);
 }
+template<typename mint>
+mint Bostan_Mori(ll n,FPS<mint> P,FPS<mint> Q){
+    while(n){
+        auto C=Q;
+        for(int i=1;i<C.size();i+=2) C[i]*=-1;
+        P*=C;
+        Q*=C;
+        FPS<mint> H;
+        for(int i=(n&1ll);i<P.size();i+=2) H.push_back(P[i]);
+        P=H;
+        FPS<mint> L;
+        for(int i=0;i<Q.size();i+=2) L.push_back(Q[i]);
+        Q=L;
+        n>>=1;
+    }
+    return P[0]/Q[0];
+}
 using mint=Fp<998244353>;
 int main(){
 }
